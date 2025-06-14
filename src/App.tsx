@@ -1,26 +1,43 @@
-import CountBtn from "@/components/count-btn";
-import ReactSVG from "@/assets/react.svg";
-import { Badge } from "@/components/ui/badge";
+import { BrowserRouter as Router, Routes, Route } from 'react-router-dom';
+import { Toaster } from 'sonner';
+import { SpotifyCallback } from '@/components/auth/spotify-callback';
+import { AuthGuard } from '@/components/auth/auth-guard';
+// import './App.css';
+import { MainApp } from '@/pages/home';
+
+
 
 function App() {
   return (
-    <main className="flex flex-col items-center justify-center h-screen">
-      <div className="flex flex-col items-center gap-y-4">
-        <div className="inline-flex items-center gap-x-4">
-          <img src={ReactSVG} alt="React Logo" className="w-32" />
-          <span className="text-6xl">+</span>
-          <img src={"/vite.svg"} alt="Vite Logo" className="w-32" />
-        </div>
-        <a
-          href="https://ui.shadcn.com"
-          rel="noopener noreferrer nofollow"
-          target="_blank"
-        >
-          <Badge variant="outline">shadcn/ui</Badge>
-        </a>
-        <CountBtn />
+    <Router>
+      <div className="min-h-screen">
+        <Routes>
+          <Route path="/callback" element={
+
+            <SpotifyCallback />
+            } />
+          <Route 
+            path="/" 
+            element={
+              <AuthGuard>
+                <MainApp />
+              </AuthGuard>
+            } 
+          />
+        </Routes>
+        
+        <Toaster 
+          position="top-right"
+          toastOptions={{
+            style: {
+              background: 'rgba(88, 28, 135, 0.95)',
+              color: 'white',
+              border: '1px solid rgba(139, 92, 246, 0.3)',
+            },
+          }}
+        />
       </div>
-    </main>
+    </Router>
   );
 }
 
