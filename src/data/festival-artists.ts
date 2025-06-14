@@ -1,0 +1,115 @@
+export const BEYOND_WONDERLAND_ARTISTS = [
+  // Headliners
+  'Alison Wonderland',
+  'ILLENIUM',
+  'Above & Beyond',
+  'Seven Lions',
+  'Porter Robinson',
+  'REZZ',
+  
+  // Electronic Dance Music
+  'Zeds Dead',
+  'Liquid Stranger',
+  'NGHTMRE',
+  'Subtronics',
+  'GRiZ',
+  'Zomboy',
+  'Virtual Riot',
+  'Kompany',
+  'Kayzo',
+  'Sullivan King',
+  'Wooli',
+  'Riot Ten',
+  'Level Up',
+  'Calcium',
+  
+  // House & Tech House
+  'Chris Lake',
+  'Fisher',
+  'John Summit',
+  'Disclosure',
+  'CloZee',
+  'Elderbrook',
+  'Lane 8',
+  'Nora En Pure',
+  'Patrick Topping',
+  'Anti Up',
+  
+  // Trance & Progressive
+  'Cosmic Gate',
+  'Andrew Rayel',
+  'Ferry Corsten',
+  'Aly & Fila',
+  'Ben Nicky',
+  'Will Atkinson',
+  'Craig Connelly',
+  'RAM',
+  
+  // Dubstep & Bass
+  'Excision',
+  'Space Laces',
+  'PhaseOne',
+  'Barely Alive',
+  'Spag Heddy',
+  'Svdden Death',
+  'Marauda',
+  'HE$H',
+  'Al Ross',
+  'Peekaboo',
+  
+  // Future Bass & Melodic
+  'Said The Sky',
+  'Dabin',
+  'Nurko',
+  'William Black',
+  'Crystal Skies',
+  'MitiS',
+  'Adventure Club',
+  'Au5',
+  'Trivecta',
+  'Last Heroes',
+  
+  // Drum & Bass
+  'Netsky',
+  'Sub Focus',
+  'Dimension',
+  'Culture Shock',
+  'Matrix & Futurebound',
+  'High Contrast',
+  'Friction',
+  'Andy C',
+  
+  // Techno & Underground
+  'Charlotte de Witte',
+  'Amelie Lens',
+  'Adam Beyer',
+  'Nina Kraviz',
+  'Carl Cox',
+  'Tale Of Us',
+  'Stephan Bodzin',
+  'Maceo Plex',
+  
+  // Experimental & Psychedelic
+  'Shpongle',
+  'Ott',
+  'Desert Dwellers',
+  'Kalya Scintilla',
+  'Tipper',
+  'Opiuo',
+  'Emancipator',
+  'Random Rab',
+  'Phutureprimitive',
+  'Govinda',
+  
+  // Local & Underground
+  'Truth',
+  'The Widdler',
+  'Of The Trees',
+  'CharlestheFirst',
+  'Goldfish',
+  'Luttrell',
+  'Spencer Brown',
+  'Yotto',
+  'Moonbootica',
+  'Solomun'
+].sort();
