@@ -46,7 +46,6 @@ export class SpotifyService {
           code,
           redirect_uri: REDIRECT_URI,
           client_id: CLIENT_ID,
-          client_secret: import.meta.env.VITE_SPOTIFY_CLIENT_SECRET || '',
         }),
       });
 
