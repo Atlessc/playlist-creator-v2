@@ -16,5 +16,13 @@ export default function CallbackPage() {
       navigate('/')  // go back to home after handling
     }
   }, [])
-  return <p>Processing Spotify login...</p>
+  return (
+    <div className="min-h-screen bg-gradient-to-br from-purple-900 via-pink-900 to-teal-900 flex items-center justify-center">
+      <div className="text-center text-white">
+        <div className="animate-spin w-12 h-12 border-4 border-neon-purple border-t-transparent rounded-full mx-auto mb-4"></div>
+        <p className="text-xl font-semibold">Processing Spotify login...</p>
+        <p className="text-sm opacity-75 mt-2">Taking you back to Wonderland...</p>
+      </div>
+    </div>
+  )
 }
