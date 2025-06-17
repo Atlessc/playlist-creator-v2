@@ -1,33 +1,17 @@
 import { BrowserRouter as Router, Routes, Route } from 'react-router-dom';
+import HomePage from './pages/home';
+import CallbackPage from './pages/CallbackPage';
 import { Toaster } from 'sonner';
-import { SpotifyCallback } from '@/components/auth/spotify-callback';
-import { AuthGuard } from '@/components/auth/auth-guard';
-// import './App.css';
-import { MainApp } from '@/pages/home';
-
-
 
 function App() {
   return (
     <Router>
-      <div className="min-h-screen">
-        <Routes>
-          <Route path="/callback" element={
-
-            <SpotifyCallback />
-            } />
-          <Route 
-            path="/" 
-            element={
-              <AuthGuard>
-                <MainApp />
-              </AuthGuard>
-            } 
-          />
-        </Routes>
-        
-        <Toaster 
-          position="top-right"
+      <Routes>
+        <Route path="/" element={<HomePage />} />
+        <Route path="/callback" element={<CallbackPage />} />
+      </Routes>
+     <Toaster 
+          position="bottom-right"
           toastOptions={{
             style: {
               background: 'rgba(88, 28, 135, 0.95)',
@@ -36,7 +20,6 @@ function App() {
             },
           }}
         />
-      </div>
     </Router>
   );
 }
