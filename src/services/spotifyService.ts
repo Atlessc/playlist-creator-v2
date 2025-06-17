@@ -1,4 +1,5 @@
 // src/services/spotify-service.ts
+import type {Artist, Track} from 'spotified';
 import Spotified from 'spotified';
 import { SpotifyArtist, SpotifyTrack } from '@/store/playlist-store';
 
@@ -151,15 +152,50 @@ export type GetArtistAllTracksFn = (
   latestAlbumTracks: SpotifyTrack[];
 }>;
 
+
 // ─────────────────────────────────────────────────────────────────────────────
-//  Exported functions
+//  Utility: split an array into fixed-size chunks
+// ─────────────────────────────────────────────────────────────────────────────
+function chunkArray<T>(arr: T[], size: number): T[][] {
+  const chunks: T[][] = [];
+  for (let i = 0; i < arr.length; i += size) {
+    chunks.push(arr.slice(i, i + size));
+  }
+  return chunks;
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+//  Shared types
+// ─────────────────────────────────────────────────────────────────────────────
+export interface TokenResponse {
+  access_token: string;
+  refresh_token: string;
+  expires_in: number;
+}
+
+export interface SimplifiedTrack {
+  id: string;
+  href: string;
+}
+
+export interface ArtistAlbumsParams {
+  include_groups?: 'album' | 'single' | 'appears_on' | 'compilation';
+  market?: string;
+  limit?: number;
+  offset?: number;
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+//  Exports
 // ─────────────────────────────────────────────────────────────────────────────
 
-export const setAccessToken: SetAccessTokenFn = (token) => {
+/** Must be called once you have an OAuth access token */
+export function setAccessToken(token: string): void {
   client.setBearerToken(token);
-};
+}
 
-export const getAuthUrl: GetAuthUrlFn = () => {
+/** Build the standard Authorization Code URL */
+export function getAuthUrl(): string {
   const scopes = [
     'playlist-modify-public',
     'playlist-modify-private',
@@ -173,10 +209,13 @@ export const getAuthUrl: GetAuthUrlFn = () => {
     scope: scopes,
     state: Math.random().toString(36).substring(2),
   });
-  return `https://accounts.spotify.com/authorize?${params.toString()}`;
-};
+  return `https://accounts.spotify.com/authorize?${params}`;
+}
 
-export const exchangeCodeForToken: ExchangeCodeForTokenFn = async (code) => {
+/** Exchange an authorization code for tokens (server-side) */
+export async function exchangeCodeForToken(
+  code: string
+): Promise<TokenResponse> {
   const resp = await fetch('https://accounts.spotify.com/api/token', {
     method: 'POST',
     headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
@@ -190,93 +229,148 @@ export const exchangeCodeForToken: ExchangeCodeForTokenFn = async (code) => {
   });
   if (!resp.ok) throw new Error('Failed to exchange code for token');
   return resp.json();
-};
+}
 
-export const getCurrentUser: GetCurrentUserFn = async () => {
+/** Get the current user’s profile */
+export async function getCurrentUser(): Promise<any> {
   return client.user.getCurrentUserProfile();
-};
+}
 
-export const searchArtists: SearchArtistsFn = async (query, limit = 10) => {
+
+
+/** Search for artists by name */
+/** Search for artists by name */
+export async function searchArtists(
+  query: string,
+  limit = 10
+): Promise<Artist[]> {
   const result = await client.search.searchForItem(query, ['artist'], { limit });
-  return result.artists?.items ?? [];
-};
+  const items: Artist[] = result.artists?.items ?? [];
 
-export const getArtistTopTracks: GetArtistTopTracksFn = async (
-  artistId,
+  // Only keep those entries with the core fields defined
+  return items.filter(a =>
+    typeof a.id === 'string' &&
+    typeof a.name === 'string' &&
+    typeof a.href === 'string' &&
+    typeof a.uri === 'string' &&
+    typeof a.type === 'string' &&
+    a.external_urls != null &&
+    typeof a.external_urls.spotify === 'string'
+  );
+}
+
+
+
+/** Fetch an artist’s top tracks */
+export async function getArtistTopTracks(
+  artistId: string,
   market = 'US'
-) => {
+): Promise<SpotifyTrack[]> {
   const { tracks } = await client.artist.getArtistTopTracks(artistId, {
     market,
   });
-  return tracks as Partial<SpotifyTrack>[];
-};
+  return tracks as SpotifyTrack[];
+}
 
-export const getArtistAlbums: GetArtistAlbumsFn = async (
-  artistId,
-  limit = 20
-) => {
-  const { items } = await client.artist.getArtistAlbums(artistId, {
-    include_groups: 'album,single',
-    market: 'US',
-    limit,
-  });
+/** Fetch an artist’s albums (albums + singles) */
+export async function getArtistAlbums(
+  artistId: string,
+  params: ArtistAlbumsParams = {}
+): Promise<any[]> {
+  const { items } = await client.artist.getArtistAlbums(artistId, params);
   return items;
-};
+}
 
-export const getAlbumTracks: GetAlbumTracksFn = async (
-  albumId,
+/** Fetch full track objects from an album */
+export async function getAlbumTracks(
+  albumId: string,
+  market = 'US',
   limit = 50
-) => {
-  const { items } = await client.album.getAlbumTracks(albumId, {
-    market: 'US',
-    limit,
-  });
-  // fetch full detail for each track
+): Promise<SpotifyTrack[]> {
+  const { items }: { items: Track[] } =
+    await client.album.getAlbumTracks(albumId, { market, limit });
+
   return Promise.all(
-    items.map((t: any) => client.track.getTrack(t.id, { market: 'US' }))
+    items
+      .filter((t): t is Track & { id: string } => typeof t.id === 'string')
+      .map((t) =>
+        client.track.getTrack(t.id!, { market }).then((full) =>
+          full as SpotifyTrack
+        )
+      )
   );
-};
+}
 
-export const getTopTracks: GetTopTracksFn = async (trackIds) => {
-  const tracks: SpotifyTrack[] = [];
-  for (const chunk of trackIds.match(/.{1,50}/g) || []) {
-    const { tracks: c } = await client.track.getTracks({ ids: chunk });
-    tracks.push(...c.filter((t) => t !== null) as SpotifyTrack[]);
+/** Lookup up to 50 tracks by an array of IDs */
+export async function getTopTracks(
+  ids: string[],
+  market: string = 'US'
+): Promise<SpotifyTrack[]> {
+  const all: SpotifyTrack[] = [];
+
+  for (const chunk of chunkArray(ids, 50)) {
+    for (const trackId of chunk) {
+      try {
+        const track = await client.track.getTrack(trackId, { market });
+        all.push(track as SpotifyTrack);
+      } catch (err) {
+        console.error(`Failed to fetch track ${trackId}:`, err);
+      }
+      // wait 200ms before the next call
+      await new Promise((resolve) => setTimeout(resolve, 200));
+    }
   }
-  return tracks;
-};
 
-export const createPlaylist: CreatePlaylistFn = async (
-  userId,
-  name,
-  isPublic = true
-) => {
-  return client.playlist.createPlaylist(userId, { name, public: isPublic });
-};
+  return all;
+}
 
-export const addTracksToPlaylist: AddTracksToPlaylistFn = async (
-  playlistId,
-  trackUris
-) => {
-  return client.playlist.addItemsToPlaylist(playlistId, { uris: trackUris });
-};
 
-export const getArtistLatestAlbumTracks: GetArtistLatestAlbumTracksFn = async (
-  artistId
-) => {
-  const albums = await getArtistAlbums(artistId, 1);
+/** Create a new playlist for the given user */
+export async function createPlaylist(
+  userId: string,
+  name: string,
+  isPublic = true,
+  description = '',
+  collaborative = false
+): Promise<any> {
+  return client.playlist.createPlaylist(userId, name, {
+    public: isPublic,
+    description,
+    collaborative,
+  });
+}
+
+/** Add track URIs to a playlist */
+export async function addTracksToPlaylist(
+  playlistId: string,
+  uris: string[]
+): Promise<any> {
+  return client.playlist.addItemsToPlaylist(playlistId, { uris });
+}
+
+/** Fetch the latest album’s tracks for an artist */
+export async function getArtistLatestAlbumTracks(
+  artistId: string
+): Promise<SpotifyTrack[]> {
+  const albums = await getArtistAlbums(artistId, { limit: 1 });
   if (albums.length === 0) return [];
   return getAlbumTracks(albums[0].id);
-};
+}
 
-export const getArtistAllTracks: GetArtistAllTracksFn = async (artistId) => {
+/** Fetch both top-tracks & latest-album-tracks, dedupe, and return */
+export async function getArtistAllTracks(
+  artistId: string
+): Promise<{
+  topTracks: SpotifyTrack[];
+  latestAlbumTracks: SpotifyTrack[];
+}> {
   const [topTracks, latestAlbumTracks] = await Promise.all([
     getArtistTopTracks(artistId),
     getArtistLatestAlbumTracks(artistId),
   ]);
-  const topIds = new Set(topTracks.map((t) => t.id!));
+  const seen = new Set(topTracks.map((t) => t.id));
   return {
     topTracks,
-    latestAlbumTracks: latestAlbumTracks.filter((t) => !topIds.has(t.id!)),
+    latestAlbumTracks: latestAlbumTracks.filter((t) => !seen.has(t.id)),
   };
-};
+}
