@@ -104,6 +104,57 @@ export async function getLatestAlbumTracks(
   }
 }
 
+export async function getAllArtistAlbums(
+  spotified: Spotified,
+  artistId: string,
+  market = 'US'
+) {
+  try {
+    // Fetch all album types (albums, singles, compilations)
+    const res = await spotified.artist.getArtistAlbums(artistId, {
+      include_groups: 'album,single,compilation',
+      market,
+      limit: 50
+    })
+    return res.items ?? []
+  } catch (err) {
+    console.error('Error fetching all artist albums:', err)
+    throw err
+  }
+}
+
+export async function getFullAlbumTracks(
+  spotified: Spotified,
+  albumId: string,
+  market = 'US'
+) {
+  try {
+    // Get album details including tracks
+    const album = await spotified.album.getAlbum(albumId, { market })
+    
+    // Return tracks with album info attached
+    return {
+      album: {
+        id: album.id,
+        name: album.name,
+        images: album.images,
+        release_date: album.release_date,
+        total_tracks: album.total_tracks,
+        artists: album.artists
+      },
+      tracks: album.tracks.items.map(track => ({
+        ...track,
+        album: { 
+          name: album.name,
+          images: album.images 
+        }
+      }))
+    }
+  } catch (err) {
+    console.error('Error fetching full album tracks:', err)
+    throw err
+  }
+}
 
 export async function addTracksToPlaylist(
   spotified: Spotified,
