@@ -1,8 +1,8 @@
-import { 
-  useEffect, 
-  useCallback, 
-  useMemo, 
-  useState 
+import {
+  useEffect,
+  useCallback,
+  useMemo,
+  useState
 } from 'react';
 import { useSpotified } from '../lib/useSpotified';
 import { ArtistAccordion } from '../components/artist-accordion';
@@ -12,13 +12,27 @@ import { ArtistManager } from '../components/ArtistManager';
 import { Toaster } from 'sonner';
 import { Button } from '../components/ui/button';
 import { useStore } from '../lib/store';
-import { 
-  getTopTracks, 
-  getLatestAlbumTracks 
+import {
+  getTopTracks,
+  // getLatestAlbumTracks 
 } from '../services/spotifyService';
 import type { ArtistInfo, SongInfo } from '../types';
 import { toast } from 'sonner';
 import { Sparkles, Music } from 'lucide-react';
+
+type RawTrackWithRequired = RawTrack & {
+  id: string
+  name: string
+  uri: string
+}
+
+type RawTrack = {
+  id?: string
+  name?: string
+  uri?: string
+  album?: { name?: string } | null
+  albumName?: string
+}
 
 export default function HomePage() {
   const {
@@ -37,10 +51,11 @@ export default function HomePage() {
   const [loadingArtist, setLoadingArtist] = useState<string | null>(null);
 
   // pull only the actions & state you need
-  const addSongs = useStore(s => s.addSongs);
   const projects = useStore(s => s.projects);
   const currentProjectIndex = useStore(s => s.currentProjectIndex);
   const setAuthenticated = useStore(s => s.setAuthenticated);
+
+  const addArtistTracks = useStore(s => s.addArtistTracks)
 
   const currentProject = projects[currentProjectIndex];
 
@@ -61,46 +76,53 @@ export default function HomePage() {
   }, [isAuthenticated, setAuthenticated]);
 
   const handleFetchSongs = useCallback(
-    async (artist: ArtistInfo) => {
-      if (!spotified || !artist.spotifyId) return;
-      setLoadingArtist(artist.name);
+    async (artist: ArtistInfo): Promise<void> => {
+      if (!spotified || !artist.spotifyId) return
+      setLoadingArtist(artist.name)
 
       try {
-        const [
-          topTracks, 
-          albumTracks
-        ] = await Promise.all([
-          getTopTracks(spotified, artist.spotifyId),
-          getLatestAlbumTracks(spotified, artist.spotifyId),
-        ]);
+        // fetch top‐tracks response
+        const topResp = await getTopTracks(spotified, artist.spotifyId)
 
-        // SpotifyWebApiResponse may put the array on .items
-        const top = topTracks?.tracks || topTracks || [];
-        const album = albumTracks || [];
+        // normalize to an array of RawTrack
+        const rawArr: unknown[] = Array.isArray(topResp)
+          ? topResp
+          : (topResp as { tracks?: unknown[] }).tracks ?? []
 
-        const songs: SongInfo[] = [
-          ...top,
-          ...album,
-        ].map((t: any) => ({
+        const rawTracks = rawArr as RawTrack[]
+
+        // 2) Filter using the new Rich type, so TS keeps album & albumName around:
+        const validTracks = rawTracks.filter(
+          (t): t is RawTrackWithRequired =>
+            typeof t.id === 'string' &&
+            typeof t.name === 'string' &&
+            typeof t.uri === 'string'
+        )
+
+        // 3) Now you can safely access album & albumName:
+        const songs: SongInfo[] = validTracks.map(t => ({
           id: t.id,
           title: t.name,
-          album: t.album?.name ?? (t.albumName ?? ''),
+          album: t.album?.name ?? t.albumName ?? '',
           artist: artist.name,
           uri: t.uri,
-        }));
-        console.log(`Fetched ${songs.length} songs for ${artist.name}`, songs);
+        }))
 
-        addSongs(artist.name, songs);
-        toast.success(`🎵 Fetched ${songs.length} tracks for ${artist.name}`);
+        console.log(`Fetched ${songs.length} songs for ${artist.name}`, songs)
+
+        // append & dedupe, rather than overwrite
+        addArtistTracks(artist.name, songs)
+
+        toast.success(`🎵 Fetched ${songs.length} tracks for ${artist.name}`)
       } catch (err) {
-        console.error(err);
-        toast.error(`Failed to fetch songs for ${artist.name}`);
+        console.error(err)
+        toast.error(`Failed to fetch songs for ${artist.name}`)
       } finally {
-        setLoadingArtist(null);
+        setLoadingArtist(null)
       }
     },
-    [spotified, addSongs]
-  );
+    [spotified, addArtistTracks]
+  )
 
   const allConfirmed = useMemo(
     () => currentProject.artists.every(a => a.confirmed),
@@ -139,7 +161,7 @@ export default function HomePage() {
                 Create the perfect festival playlist with tracks from all your favorite Beyond Wonderland artists
               </p>
             </div>
-            
+
             <div className="space-y-4 max-w-md mx-auto">
               <div className="p-6 rounded-xl bg-white/10 backdrop-blur-sm border border-white/20">
                 <Music className="w-12 h-12 mx-auto mb-3 text-neon-teal" />
@@ -149,7 +171,7 @@ export default function HomePage() {
                 <p className="text-gray-300 text-sm mb-4">
                   Connect your Spotify account to search artists, fetch their top tracks, and create your ultimate festival playlist
                 </p>
-                
+
                 <Button
                   onClick={authenticate}
                   className="w-full bg-gradient-to-r from-neon-purple to-neon-pink hover:from-neon-purple/80 hover:to-neon-pink/80 text-white font-bold py-3 text-lg shadow-lg shadow-neon-purple/25 transition-all duration-300 hover:scale-105"
@@ -158,7 +180,7 @@ export default function HomePage() {
                   Connect Spotify
                 </Button>
               </div>
-              
+
               {error && (
                 <div className="p-4 rounded-lg bg-red-500/10 border border-red-500/30 text-red-400 text-sm">
                   {error}
@@ -169,7 +191,7 @@ export default function HomePage() {
 
           <div className="text-center text-gray-400 text-sm max-w-lg">
             <p>
-              This app will access your Spotify account to search for artists and create playlists. 
+              This app will access your Spotify account to search for artists and create playlists.
               Your music taste stays private and secure.
             </p>
           </div>
@@ -198,10 +220,10 @@ export default function HomePage() {
                 </h1>
                 <p className="text-sm text-gray-400">Playlist Generator</p>
               </div>
-              
+
               <div className="flex items-center space-x-4">
                 <ProjectManager />
-                
+
                 {allConfirmed && currentProject.artists.some(a => a.songs.length === 0) && (
                   <Button
                     onClick={fetchAllSongs}
@@ -242,7 +264,7 @@ export default function HomePage() {
         </main>
       </div>
 
-      <Toaster 
+      <Toaster
         theme="dark"
         position="bottom-right"
         toastOptions={{
