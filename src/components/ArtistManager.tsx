@@ -44,10 +44,7 @@ export function ArtistManager() {
     }
   };
 
-  // Only show for custom projects (not the default Beyond Wonderland one)
-  if (currentProject.title === "Beyond Wonderland 2025 Playlist") {
-    return null;
-  }
+
 
   return (
     <div className="mb-6">

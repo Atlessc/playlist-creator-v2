@@ -56,7 +56,7 @@ export function AlbumBrowser({ artist, spotified }: AlbumBrowserProps) {
   const [addingTrack, setAddingTrack] = useState<string | null>(null)
   const [addingAlbum, setAddingAlbum] = useState<string | null>(null)
 
-  // --- ➋ selector for this artist’s songs in the unified store ---
+  // --- selector for this artist’s songs in the unified store ---
   const selectTracks = useCallback(
     (s: UnifiedStore): SongInfo[] => {
       const proj = s.projects[s.currentProjectIndex]
@@ -71,7 +71,7 @@ export function AlbumBrowser({ artist, spotified }: AlbumBrowserProps) {
   const existingTracks = useStore(selectTracks)
   const addArtistTracks = useStore(s => s.addArtistTracks)
 
-  // --- album‐loading handlers (unchanged) ---
+  // --- album‐loading handlers ---
   const handleOpenAlbums = async () => {
     if (!spotified || !artist.spotifyId) return
     setIsOpen(true)
@@ -170,15 +170,6 @@ export function AlbumBrowser({ artist, spotified }: AlbumBrowserProps) {
   const formatDate = (d: string) =>
     isNaN(Date.parse(d)) ? d : new Date(d).getFullYear()
 
-  // const getAlbumTypeColor = (type: string) => {
-  //   switch (type) {
-  //     case 'album': return 'bg-neon-purple/20 text-neon-purple border-neon-purple/30';
-  //     case 'single': return 'bg-neon-pink/20 text-neon-pink border-neon-pink/30';
-  //     case 'compilation': return 'bg-neon-teal/20 text-neon-teal border-neon-teal/30';
-  //     default: return 'bg-gray-500/20 text-gray-400 border-gray-500/30';
-  //   }
-  // };
-
   return (
     <Dialog open={isOpen} onOpenChange={setIsOpen}>
       <DialogTrigger asChild>
@@ -193,7 +184,8 @@ export function AlbumBrowser({ artist, spotified }: AlbumBrowserProps) {
         </Button>
       </DialogTrigger>
       
-      <DialogContent className="bg-black/90 backdrop-blur-md border-white/20 text-white max-w-4xl max-h-[80vh] overflow-scroll">
+      <DialogContent className="bg-black/90 backdrop-blur-md border-white/20 text-white max-w-4xl max-h-[80vh] overflow-x-hidden">
+            
         <DialogHeader>
           <DialogTitle className="text-xl font-bold bg-gradient-to-r from-neon-purple to-neon-pink bg-clip-text text-transparent">
             {selectedAlbum ? selectedAlbum.album.name : `${artist.name} - Albums`}

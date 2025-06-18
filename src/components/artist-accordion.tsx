@@ -23,6 +23,7 @@ import { useStore } from '../lib/store';
 import { toast } from 'sonner';
 import type { ArtistInfo } from '../types';
 import Spotified from 'spotified';
+import { ArtistManager } from './ArtistManager';
 
 interface ArtistAccordionProps {
   artists: ArtistInfo[];
@@ -98,6 +99,7 @@ export function ArtistAccordion({
           Search and confirm artists from the Beyond Wonderland 2025 lineup
         </p>
       </div>
+      <ArtistManager />
 
       <Accordion type="multiple" className="space-y-4">
         {artists.map((artist) => (
@@ -277,7 +279,6 @@ export function ArtistAccordion({
                           </>
                         )}
                       </Button>
-                      
                       <AlbumBrowser artist={artist} spotified={spotified} />
                     </div>
 

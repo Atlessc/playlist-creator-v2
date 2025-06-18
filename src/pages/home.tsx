@@ -8,7 +8,6 @@ import { useSpotified } from '../lib/useSpotified';
 import { ArtistAccordion } from '../components/artist-accordion';
 import { PlaylistTracks } from '../components/PlaylistTracks';
 import { ProjectManager } from '../components/ProjectManager';
-import { ArtistManager } from '../components/ArtistManager';
 import { Toaster } from 'sonner';
 import { Button } from '../components/ui/button';
 import { useStore } from '../lib/store';
@@ -242,7 +241,7 @@ export default function HomePage() {
           <div className="grid lg:grid-cols-2 gap-8">
             {/* Left column - Artists */}
             <div className="space-y-6">
-              <ArtistManager />
+              
               <ArtistAccordion
                 artists={currentProject.artists}
                 spotified={spotified}
