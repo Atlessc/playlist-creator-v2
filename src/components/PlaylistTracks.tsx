@@ -231,7 +231,7 @@ export function PlaylistTracks({ songs, spotified }: PlaylistTracksProps) {
     <div className="space-y-6">
       <div className="text-center">
         <h2 className="text-3xl font-bold bg-gradient-to-r from-neon-teal to-neon-purple bg-clip-text text-transparent mb-2">
-          Your Festival Playlist
+          Your Playlist
         </h2>
         <div className="flex items-center justify-center space-x-4 text-sm text-gray-400">
           <span className="flex items-center">
