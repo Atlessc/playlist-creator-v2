@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { Button } from './ui/button';
 import { Badge } from './ui/badge';
+import { AlbumBrowser } from './AlbumBrowser';
 import { 
   Accordion, 
   AccordionContent, 
@@ -276,6 +277,8 @@ export function ArtistAccordion({
                           </>
                         )}
                       </Button>
+                      
+                      <AlbumBrowser artist={artist} spotified={spotified} />
                     </div>
 
                     {artist.songs.length > 0 && (
@@ -288,7 +291,7 @@ export function ArtistAccordion({
                           {artist.songs.map((song) => (
                             <div
                               key={song.id}
-                              className={`p-2 rounded text-sm ${
+                              className={`p-2 rounded text-sm truncate ${
                                 song.duplicate 
                                   ? 'bg-yellow-500/10 border border-yellow-500/30 text-yellow-300' 
                                   : 'bg-white/5 text-gray-300'
