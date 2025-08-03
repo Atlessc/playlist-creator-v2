@@ -1,89 +1,155 @@
-# React + Vite + TypeScript Template (react-vite-ui)
+# Spotify Playlist Creator (Powered by [Spotified by Abdullah Malik](https://github.com/Abdullah-Malik/spotified))
 
 [![License](https://img.shields.io/badge/license-MIT-blue.svg)](https://github.com/Dan5py/react-vite-ui/blob/main/LICENSE)
 
-A React + Vite template powered by shadcn/ui.
+Turn your Spotify vibes into slick playlists in seconds. Playlist Creator v2 is a React + Vite + TypeScript app styled with Tailwind CSS and shadcn/ui—your personal Spotify wizard 🧙‍♂️✨.
 
-> [!NOTE]
-> This template uses Tailwind v3, if you want to use Tailwind v4, check the [tw4 branch](https://github.com/dan5py/react-vite-shadcn-ui/tree/tw4).
+---
 
-## 🎉 Features
+## What Is This?
 
-- **React** - A JavaScript library for building user interfaces.
-- **Vite** - A fast, opinionated frontend build tool.
-- **TypeScript** - A typed superset of JavaScript that compiles to plain JavaScript.
-- **Tailwind CSS** - A utility-first CSS framework. (`v3`)
-- **Tailwind Prettier Plugin** - A Prettier plugin for formatting Tailwind CSS classes.
-- **ESLint** - A pluggable linting utility for JavaScript and TypeScript.
-- **PostCSS** - A tool for transforming CSS with JavaScript.
-- **Autoprefixer** - A PostCSS plugin to parse CSS and add vendor prefixes.
-- **shadcn/ui** - Beautifully designed components that you can copy and paste into your apps.
+- 🔍 **Search** tracks, artists or albums via the Spotify API
+- ➕ **Queue** your faves into a draft playlist
+- 🚀 **Publish** a brand-new playlist straight to your Spotify account
 
-## ⚙️ Prerequisites
+No more copy-pasting song links—just type, click, and jam. 🎶
 
-Make sure you have the following installed on your development machine:
+---
 
-- Node.js (version 22 or above)
-- pnpm (package manager)
+## Quick Start (npm Only)
 
-## 🚀 Getting Started
-
-Follow these steps to get started with the react-vite-ui template:
-
-1. Clone the repository:
-
-   ```bash
-   git clone https://github.com/dan5py/react-vite-ui.git
+1. **Clone the repo**
+   ``` bash
+   git clone https://github.com/Atlessc/playlist-creator-v2.git
+   cd playlist-creator-v2
    ```
-
-2. Navigate to the project directory:
-
+2. **Install dependencies**
    ```bash
-   cd react-vite-ui
+   npm install
    ```
+3. **Get your Spotify creds**
 
-3. Install the dependencies:
-
+   - Hit up the [Spotify Developer Dashboard](https://developer.spotify.com/dashboard/)
+   - Create an app → grab **Client ID** & **Client Secret**
+   - Set Redirect URI → `http://localhost:5173/callback`
+4. **Create your `.env`**
    ```bash
-   pnpm install
+   cp .env.example .env
    ```
-
-4. Start the development server:
-
+   Fill in:
    ```bash
-   pnpm dev
+   VITE_SPOTIFY_CLIENT_ID=your_client_id_here
+   VITE_SPOTIFY_CLIENT_SECRET=your_client_secret_here
+   VITE_REDIRECT_URI=http://localhost:5173/callback
    ```
+6. **Run in dev mode**
+   ```bash
+   npm run dev
+   ```
+   Open [http://localhost:5173](http://localhost:5173) — no cap, you’re ready to rock. 🤘
+7. **Build for prod**
+   ```bash
+   npm run build
+   npm run preview
+   ```
+---
 
-## 📜 Available Scripts
+## How It Works: The Tech Deep Dive
 
-- pnpm dev - Starts the development server.
-- pnpm build - Builds the production-ready code.
-- pnpm lint - Runs ESLint to analyze and lint the code.
-- pnpm preview - Starts the Vite development server in preview mode.
+### 1. Spotify Auth (Auth Code Flow)
 
-## 📂 Project Structure
+- User clicks “Log in with Spotify” → Spotify login screen
+- Spotify redirects back to `/callback?code=…`
+- We swap that `code` for an access token in `src/server/auth.ts`
+- Tokens chill in `sessionStorage` so you can keep adding tracks until you close the tab
 
-The project structure follows a standard React application layout:
-
-```python
-react-vite-ui/
-  ├── node_modules/      # Project dependencies
-  ├── public/            # Public assets
-  ├── src/               # Application source code
-  │   ├── components/    # React components
-  │   │   └── ui/        # shadc/ui components
-  │   ├── styles/        # CSS stylesheets
-  │   ├── lib/           # Utility functions
-  │   ├── App.tsx        # Application entry point
-  │   └── index.tsx      # Main rendering file
-  ├── eslint.config.js     # ESLint configuration
-  ├── index.html         # HTML entry point
-  ├── postcss.config.js  # PostCSS configuration
-  ├── tailwind.config.ts # Tailwind CSS configuration
-  ├── tsconfig.json      # TypeScript configuration
-  └── vite.config.ts     # Vite configuration
+```typescript
+// src/server/auth.ts
+export async function exchangeCodeForToken(code: string) {
+  const res = await fetch("https://accounts.spotify.com/api/token", {
+    method: "POST",
+    headers: { "Content-Type": "application/x-www-form-urlencoded" },
+    body: new URLSearchParams({
+      grant_type: "authorization_code",
+      code,
+      redirect_uri: import.meta.env.VITE_REDIRECT_URI,
+      client_id: import.meta.env.VITE_SPOTIFY_CLIENT_ID,
+      client_secret: import.meta.env.VITE_SPOTIFY_CLIENT_SECRET,
+    }),
+  });
+  return res.json();
+}
 ```
 
-## 📄 License
+### 2. App Architecture
 
-This project is licensed under the MIT License. See the [LICENSE](https://choosealicense.com/licenses/mit/) file for details.
+```text
+playlist-creator-v2/
+├── public/                # Static assets (favicon, index.html)
+├── src/
+│   ├── components/        # shadcn/ui + custom UI bits
+│   ├── pages/
+│   │   ├── App.tsx        # root & router outlet
+│   │   └── Callback.tsx   # handles Spotify `code`
+│   ├── server/            # Vite worker helpers
+│   │   └── auth.ts        # token exchange + refresh
+│   ├── styles/            # Tailwind imports & globals.css
+│   ├── utils/             # fetch wrappers & TS interfaces
+│   └── main.tsx           # React entry point
+├── tailwind.config.ts     # Tailwind + shadcn presets
+├── postcss.config.js      # autoprefixer
+├── vite.config.ts         # Vite + env var mapping
+└── package.json           # npm scripts & deps
+```
+
+### 3. Key Configs
+
+#### `tailwind.config.ts`
+
+```typescript
+import { shadcnPreset } from "shadcn-ui";
+export default {
+  presets: [shadcnPreset()],
+  content: ["./src/**/*.{ts,tsx}", "./components.json"],
+  theme: { extend: {} },
+};
+```
+
+#### `vite.config.ts`
+
+```typescript
+import { defineConfig } from "vite";
+import react from "@vitejs/plugin-react";
+
+export default defineConfig({
+  plugins: [react()],
+  define: { "process.env": {} },
+});
+```
+
+#### `package.json` (npm scripts only)
+
+```json
+{
+  "scripts": {
+    "dev": "vite",
+    "build": "vite build",
+    "preview": "vite preview",
+    "lint": "eslint \"src/**/*.{js,ts,tsx}\" --fix"
+  }
+}
+```
+
+---
+
+## Tips & Tricks
+
+- **Debounce your searches** to dodge Spotify rate limits
+- If you switch ports, update `VITE_REDIRECT_URI` in both Spotify Dashboard & `.env`
+- Wrap your fetches in `try/catch` & toast errors with shadcn’s `<Toast />`
+
+---
+
+## License
+
+MIT © 2025 Atlessc – rock on! 🤘
