@@ -2,15 +2,18 @@ import { BrowserRouter as Router, Routes, Route } from 'react-router-dom';
 import HomePage from './pages/home';
 import CallbackPage from './pages/CallbackPage';
 import { Toaster } from 'sonner';
+import { TooltipProvider } from './components/ui/tooltip';
 
 function App() {
   return (
     <Router>
-      <Routes>
-        <Route path="/" element={<HomePage />} />
-        <Route path="/callback" element={<CallbackPage />} />
-      </Routes>
-     <Toaster 
+      <TooltipProvider>
+
+        <Routes>
+          <Route path="/" element={<HomePage />} />
+          <Route path="/callback" element={<CallbackPage />} />
+        </Routes>
+        <Toaster
           position="bottom-right"
           toastOptions={{
             style: {
@@ -20,6 +23,7 @@ function App() {
             },
           }}
         />
+      </TooltipProvider>
     </Router>
   );
 }
