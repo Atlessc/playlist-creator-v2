@@ -59,8 +59,9 @@ export function ArtistManager() {
         <Dialog open={isAddDialogOpen} onOpenChange={setIsAddDialogOpen}>
           <DialogTrigger asChild>
             <Button 
+              variant="outline"
               size="sm" 
-              className="bg-gradient-to-r from-neon-teal to-neon-purple hover:from-neon-teal/80 hover:to-neon-purple/80"
+              className=""
             >
               <UserPlus className="w-4 h-4 mr-2" />
               Add Artist
@@ -68,7 +69,7 @@ export function ArtistManager() {
           </DialogTrigger>
           <DialogContent className="bg-black/90 backdrop-blur-md border-white/20 text-white">
             <DialogHeader>
-              <DialogTitle className="text-xl font-bold bg-gradient-to-r from-neon-purple to-neon-pink bg-clip-text text-transparent">
+              <DialogTitle className="text-xl font-bold text-white">
                 Add New Artist
               </DialogTitle>
               <DialogDescription className="text-gray-300">
@@ -96,13 +97,14 @@ export function ArtistManager() {
               <Button
                 variant="outline"
                 onClick={() => setIsAddDialogOpen(false)}
-                className="border-white/20 text-white hover:bg-white/10"
+                className="border-red-500/50 text-red-500/50 hover:border-red-500 hover:text-red-500"
               >
                 Cancel
               </Button>
               <Button
+                variant="outline"
                 onClick={handleAddArtist}
-                className="bg-gradient-to-r from-neon-purple to-neon-pink hover:from-neon-purple/80 hover:to-neon-pink/80"
+                
               >
                 <UserPlus className="w-4 h-4 mr-2" />
                 Add Artist
