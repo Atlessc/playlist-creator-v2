@@ -1,6 +1,7 @@
 // src/services/spotifyService.ts
 // import { get } from 'node:https';
 import Spotified from 'spotified';
+import type { Playlist } from 'spotified';  // import the named Playlist type
 // import {getArtistTopTracks} from 'spotified/src/endpoints/Artist';  // removed unused invalid import
 
 
@@ -204,14 +205,15 @@ export async function addTracksToPlaylist(
   }
 }
 
-export async function createPlaylist(spotified: Spotified, userId: string, name: string) {
+export async function createPlaylist(spotified: Spotified, userId: string, name: string):Promise<Playlist> {
   try {
     const playlist = await spotified.playlist.createPlaylist(
       userId,
       name,
       {}
     )
-    return playlist
+    const { id, name: playlistName, description, href } = playlist
+    return { id, name: playlistName, description, href }
   } catch (err) {
     console.error("Error creating playlist:", err)
     throw err
