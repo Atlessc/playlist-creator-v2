@@ -20,21 +20,31 @@ import {
   useSortable,
 } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
-import { 
-  Play, 
-  Trash2, 
-  ArrowUp, 
-  ArrowDown, 
+import {
+  Play,
+  Trash2,
+  ArrowUp,
+  ArrowDown,
   GripVertical,
   Music,
   Loader2,
-  Check
+  Check,
+  Pencil
 } from 'lucide-react';
 import { useStore } from '../lib/store';
 import { createPlaylist, addTracksToPlaylist } from '../services/spotifyService';
 import { toast } from 'sonner';
 import type { SongInfo } from '../types';
 import Spotified from 'spotified';
+import {
+  Dialog,
+  DialogTrigger,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogFooter
+} from './ui/dialog';
+import { Input } from './ui/input';
 
 interface PlaylistTracksProps {
   songs: SongInfo[];
@@ -70,11 +80,10 @@ function SortableItem({ song, index, onRemove, onMoveUp, onMoveDown, totalSongs 
     <div
       ref={setNodeRef}
       style={style}
-      className={`group p-4 rounded-lg border ${
-        song.duplicate 
-          ? 'bg-yellow-500/10 border-yellow-500/30' 
+      className={`group p-4 rounded-lg border ${song.duplicate
+          ? 'bg-yellow-500/10 border-yellow-500/30'
           : 'bg-white/5 border-white/10'
-      } hover:bg-white/10 transition-all duration-200`}
+        } hover:bg-white/10 transition-all duration-200`}
     >
       <div className="flex items-center space-x-3">
         <div
@@ -84,7 +93,7 @@ function SortableItem({ song, index, onRemove, onMoveUp, onMoveDown, totalSongs 
         >
           <GripVertical className="w-4 h-4" />
         </div>
-        
+
         <div className="flex-1 min-w-0">
           <div className="flex items-center justify-between">
             <div className="flex-1 min-w-0">
@@ -95,14 +104,14 @@ function SortableItem({ song, index, onRemove, onMoveUp, onMoveDown, totalSongs 
                 by {song.artist} • {song.album}
               </p>
             </div>
-            
+
             <div className="flex items-center space-x-2 ml-4">
               {song.duplicate && (
                 <Badge variant="outline" className="text-xs border-yellow-500/50 text-yellow-400">
                   Duplicate
                 </Badge>
               )}
-              
+
               <div className="flex space-x-1 opacity-0 group-hover:opacity-100 transition-opacity">
                 <Button
                   size="sm"
@@ -113,7 +122,7 @@ function SortableItem({ song, index, onRemove, onMoveUp, onMoveDown, totalSongs 
                 >
                   <ArrowUp className="w-3 h-3" />
                 </Button>
-                
+
                 <Button
                   size="sm"
                   variant="ghost"
@@ -123,7 +132,7 @@ function SortableItem({ song, index, onRemove, onMoveUp, onMoveDown, totalSongs 
                 >
                   <ArrowDown className="w-3 h-3" />
                 </Button>
-                
+
                 <Button
                   size="sm"
                   variant="ghost"
@@ -143,11 +152,55 @@ function SortableItem({ song, index, onRemove, onMoveUp, onMoveDown, totalSongs 
 
 export function PlaylistTracks({ songs, spotified }: PlaylistTracksProps) {
   const [isCreatingPlaylist, setIsCreatingPlaylist] = useState(false);
-  
+
   const removeSong = useStore(s => s.removeSong);
   const moveSong = useStore(s => s.moveSong);
   const setPlaylistId = useStore(s => s.setPlaylistId);
   const currentProject = useStore(s => s.projects[s.currentProjectIndex]);
+  const updateProjectTitle = useStore(s => s.updateProjectTitle);
+  const setMainPlaylistUri = useStore(s => s.setMainPlaylistUri);
+  
+  function EditProjectTitle () {
+    const [newTitle, setNewTitle] = useState(currentProject.title || '');
+    return (
+      <Dialog>
+
+        <DialogTrigger asChild>
+          <Button variant="outline" className="ml-4">
+            <Pencil className="w-6 h-6 text-white" />
+          </Button>
+        </DialogTrigger>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Edit Project Title</DialogTitle>
+          </DialogHeader>
+          <div>
+
+            <Input
+              type="text"
+              placeholder="Enter new project title"
+              value={newTitle}
+              onChange={(e) => setNewTitle(e.target.value)}
+              className="w-full p-2 border rounded"
+            />
+          </div>
+          <DialogFooter>
+
+            <Button
+              className="mt-4"
+              onClick={() => {
+                updateProjectTitle(newTitle);
+                setNewTitle(''); // Clear input after saving
+                toast.success('Project title updated successfully!')
+              }}
+            >
+              Save
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+    )
+  };
 
   const sensors = useSensors(
     useSensor(PointerSensor),
@@ -162,7 +215,7 @@ export function PlaylistTracks({ songs, spotified }: PlaylistTracksProps) {
     if (over && active.id !== over.id) {
       const oldIndex = songs.findIndex(song => song.id === active.id);
       const newIndex = songs.findIndex(song => song.id === over.id);
-      
+
       moveSong(oldIndex, newIndex);
     }
   };
@@ -190,18 +243,22 @@ export function PlaylistTracks({ songs, spotified }: PlaylistTracksProps) {
 
       // Create playlist
       const playlist = await createPlaylist(
-        spotified, 
-        userId, 
+        spotified,
+        userId,
         currentProject.title
       );
+
+      console.log('Created playlist:', playlist);
 
       // Add tracks to playlist
       const trackUris = songs.map(song => song.uri);
       await addTracksToPlaylist(spotified, playlist.id!, trackUris);
 
+      setMainPlaylistUri(playlist.href || '');
+
       setPlaylistId(playlist.id!);
       toast.success(`🎉 Created playlist "${currentProject.title}" with ${songs.length} tracks!`);
-      
+
     } catch (error) {
       console.error('Error creating playlist:', error);
       toast.error('Failed to create playlist. Please try again.');
@@ -228,10 +285,11 @@ export function PlaylistTracks({ songs, spotified }: PlaylistTracksProps) {
   }
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-6 h-[calc(100vh-200px)] overflow-y-auto">
       <div className="text-center">
-        <h2 className="text-3xl font-bold bg-gradient-to-r from-neon-teal to-neon-purple bg-clip-text text-transparent mb-2">
-          Your Playlist
+        <h2 className="text-3xl font-bold text-white mb-2">
+          {currentProject.title ? currentProject.title : "Your Playlist Tracks"}
+          <EditProjectTitle />
         </h2>
         <div className="flex items-center justify-center space-x-4 text-sm text-gray-400">
           <span className="flex items-center">
