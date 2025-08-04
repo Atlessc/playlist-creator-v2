@@ -2,21 +2,25 @@ import { useState } from 'react';
 import { Button } from './ui/button';
 import { Badge } from './ui/badge';
 import { AlbumBrowser } from './AlbumBrowser';
-import { 
-  Accordion, 
-  AccordionContent, 
-  AccordionItem, 
-  AccordionTrigger 
+import {
+  Accordion,
+  AccordionContent,
+  AccordionItem,
+  AccordionTrigger
 } from './ui/accordion';
-import { 
-  Music, 
-  Check, 
-  X, 
-  Loader2, 
+import {
+  Music,
+  Check,
+  Loader2,
   Search,
   Star,
   Plus,
-  Volume2
+  Volume2,
+  Trash,
+  Undo2,
+  Pencil,
+  Trash2,
+  X
 } from 'lucide-react';
 import { searchArtistByName } from '../services/spotifyService';
 import { useStore } from '../lib/store';
@@ -24,6 +28,11 @@ import { toast } from 'sonner';
 import type { ArtistInfo } from '../types';
 import Spotified from 'spotified';
 import { ArtistManager } from './ArtistManager';
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipTrigger,
+} from "@/components/ui/tooltip"
 
 interface ArtistAccordionProps {
   artists: ArtistInfo[];
@@ -32,26 +41,29 @@ interface ArtistAccordionProps {
   loadingArtist: string | null;
 }
 
-export function ArtistAccordion({ 
-  artists, 
-  spotified, 
-  onFetchSongs, 
-  loadingArtist 
+export function ArtistAccordion({
+  artists,
+  spotified,
+  onFetchSongs,
+  loadingArtist
 }: ArtistAccordionProps) {
-  const [searchResults, setSearchResults] = useState<{[key: string]: any[]}>({});
+  const [searchResults, setSearchResults] = useState<{ [key: string]: any[] }>({});
   const [searchLoading, setSearchLoading] = useState<string | null>(null);
-  
+  const [editArtists, setEditArtists] = useState(false);
+  const [editArtistsList, setEditArtistsList] = useState<string[]>([]);
+
   const confirmArtist = useStore(s => s.confirmArtist);
-  const undoArtist = useStore(s => s.undoArtist);
+  const undoConfirmArtist = useStore(s => s.undoConfirmArtist);
+  const removeArtistFromProject = useStore(s => s.removeArtistFromProject);
 
   const handleSearchArtist = async (artistName: string) => {
     if (!spotified) return;
-    
+
     setSearchLoading(artistName);
     try {
       const results = await searchArtistByName(spotified, artistName);
       setSearchResults(prev => ({ ...prev, [artistName]: results }));
-      
+
       if (results.length === 1) {
         // Auto-confirm if only one result
         confirmArtist(artistName, results[0]);
@@ -75,8 +87,13 @@ export function ArtistAccordion({
     toast.success(`✅ Confirmed ${spotifyArtist.name}!`);
   };
 
+  const handleRemoveArtistFromPlaylist = (artistName: string) => {
+    removeArtistFromProject(artistName);
+    toast.success(`🗑️ Removed ${artistName} from the list`);
+  };
+
   const handleUndoArtist = (artistName: string) => {
-    undoArtist(artistName);
+    undoConfirmArtist(artistName);
     toast.info(`↩️ Reset ${artistName}`);
   };
 
@@ -90,35 +107,162 @@ export function ArtistAccordion({
   };
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-6 overflow-hidden">
       <div className="text-center mb-8">
-        <h2 className="text-3xl font-bold bg-gradient-to-r from-neon-purple to-neon-pink bg-clip-text text-transparent mb-2">
+        <h2 className="text-3xl font-bold text-white mb-2">
           Festival Artists
         </h2>
         <p className="text-gray-300">
-          Search and confirm artists from the Beyond Wonderland 2025 lineup
+          Search and confirm artists from the festival lineup
         </p>
       </div>
       <ArtistManager />
 
-      <Accordion type="multiple" className="space-y-4">
+      {editArtists ?
+        (<>
+          {editArtistsList.length > 0 ?
+
+            <Tooltip>
+              <TooltipTrigger>
+                <div className="border border-input bg-background hover:bg-accent hover:text-accent-foreground h-9 rounded-md px-3 inline-flex items-center justify-center gap-2 whitespace-nowrap text-sm font-medium ring-offset-background transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 cursor-pointer [&_svg]:size-4 [&_svg]:shrink-0"
+                  onClick={() => {
+                    if (editArtists) {
+                      // Remove all selected artists in one go
+                      if (editArtistsList.length === 0) {
+                        toast.error('Cancelling edit mode, no artists selected');
+                        setEditArtistsList([])
+                        setEditArtists(false)
+                        return;
+                      }
+                      editArtistsList.forEach(artistName => {
+                        handleRemoveArtistFromPlaylist(artistName)
+                      })
+                      // Clear the list and exit edit mode
+                      setEditArtistsList([])
+                      setEditArtists(false)
+                      toast.info('Exited edit mode')
+                    } else {
+                      setEditArtists(true)
+                      toast.info('Entered edit mode')
+                    }
+                  }}
+                >
+
+                  <Trash2 className="w-4 h-4" />
+                </div>
+              </TooltipTrigger>
+              <TooltipContent sideOffset={30}>
+                <p>Remove Selected Artists</p>
+              </TooltipContent>
+            </Tooltip>
+            :
+            <Tooltip>
+              <TooltipTrigger>
+                <div className="border border-input bg-background hover:bg-accent hover:text-accent-foreground h-9 rounded-md px-3 inline-flex items-center justify-center gap-2 whitespace-nowrap text-sm font-medium ring-offset-background transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 cursor-pointer [&_svg]:size-4 [&_svg]:shrink-0"
+                  onClick={() => {
+                    if (editArtists) {
+                      // Remove all selected artists in one go
+                      if (editArtistsList.length === 0) {
+                        toast.error('Cancelling edit mode, no artists selected');
+                        setEditArtistsList([])
+                        setEditArtists(false)
+                        return;
+                      }
+                      editArtistsList.forEach(artistName => {
+                        handleRemoveArtistFromPlaylist(artistName)
+                      })
+                      // Clear the list and exit edit mode
+                      setEditArtistsList([])
+                      setEditArtists(false)
+                      toast.info('Exited edit mode')
+                    } else {
+                      setEditArtists(true)
+                      toast.info('Entered edit mode')
+                    }
+                  }}
+                >
+
+                  <X className="w-4 h-4" />
+                </div>
+              </TooltipTrigger>
+              <TooltipContent sideOffset={30}>
+                <p>Cancel Edit</p>
+              </TooltipContent>
+            </Tooltip>
+          }
+        </>
+        )
+        :
+        <Tooltip>
+          <TooltipTrigger>
+            <div className="border border-input bg-background hover:bg-accent hover:text-accent-foreground h-9 rounded-md px-3 inline-flex items-center justify-center gap-2 whitespace-nowrap text-sm font-medium ring-offset-background transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 cursor-pointer [&_svg]:size-4 [&_svg]:shrink-0"
+              onClick={() => {
+                if (editArtists) {
+                  // Remove all selected artists in one go
+                  if (editArtistsList.length === 0) {
+                    toast.error('Cancelling edit mode, no artists selected');
+                    setEditArtistsList([])
+                    setEditArtists(false)
+                    return;
+                  }
+                  editArtistsList.forEach(artistName => {
+                    handleRemoveArtistFromPlaylist(artistName)
+                  })
+                  // Clear the list and exit edit mode
+                  setEditArtistsList([])
+                  setEditArtists(false)
+                  toast.info('Exited edit mode')
+                } else {
+                  setEditArtists(true)
+                  toast.info('Entered edit mode')
+                }
+              }}
+            >
+              <Pencil className="w-4 h-4" />
+            </div>
+          </TooltipTrigger>
+          <TooltipContent sideOffset={30}>
+            <p>Edit Artist List</p>
+          </TooltipContent>
+        </Tooltip>
+      }
+
+      <Accordion type="multiple" className="space-y-4 overflow-y-auto max-h-[calc(100vh-400px)] pr-2">
         {artists.map((artist) => (
-          <AccordionItem 
-            key={artist.name} 
+          <AccordionItem
+            key={artist.name}
             value={artist.name}
-            className="border border-white/10 rounded-lg bg-black/20 backdrop-blur-sm"
+            className="border rounded-lg hover:bg-white/10 transition-all duration-200 bg-white/5 border-white/10 relative"
           >
+            <input type="checkbox" className={editArtists ?
+              "absolute top-5 my-auto ml-4 w-5 h-5 rounded border-gray-300 text-neon-purple focus:ring-neon-purple cursor-pointer"
+              :
+              "hidden"}
+              onChange={() => {
+                setEditArtistsList((prev) => {
+                  if (prev.includes(artist.name)) {
+                    return prev.filter(a => a !== artist.name);
+                  } else {
+                    return [...prev, artist.name];
+                  }
+                })
+              }}
+
+            />
             <AccordionTrigger className="px-6 py-4 hover:no-underline group">
               <div className="flex items-center justify-between w-full mr-4">
                 <div className="flex items-center space-x-3">
-                  <div className={`w-3 h-3 rounded-full ${
-                    artist.confirmed 
-                      ? 'bg-green-400 shadow-lg shadow-green-400/50' 
-                      : 'bg-gray-500'
-                  }`} />
+                  
+                  <div className={`w-3 h-3 rounded-full ${artist.confirmed
+                    ? 'bg-green-400 shadow-lg shadow-green-400/50'
+                    : 'bg-gray-500'
+                    }`} />
                   <span className="text-lg font-medium text-white group-hover:text-neon-purple transition-colors">
                     {artist.name}
                   </span>
+                </div>
+                <div className="flex items-center space-x-2">
+
                   {artist.confirmed && (
                     <Badge variant="secondary" className="bg-green-500/20 text-green-400 border-green-500/30">
                       <Check className="w-3 h-3 mr-1" />
@@ -134,8 +278,10 @@ export function ArtistAccordion({
                 </div>
               </div>
             </AccordionTrigger>
-            
-            <AccordionContent className="px-6 pb-6">
+
+            <AccordionContent
+              className="px-6 pb-6"
+            >
               <div className="space-y-4">
                 {!artist.confirmed ? (
                   <div className="space-y-4">
@@ -249,23 +395,44 @@ export function ArtistAccordion({
                             </div>
                           </div>
                         </div>
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          onClick={() => handleUndoArtist(artist.name)}
-                          className="text-red-400 hover:text-red-300 hover:bg-red-500/10"
-                        >
-                          <X className="w-4 h-4 mr-1" />
-                          Reset
-                        </Button>
+                        <div className="flex items-center space-x-2">
+                          <Tooltip>
+                            <TooltipTrigger>
+
+                              <Button
+                                variant="outline"
+                                size="sm"
+                                onClick={() => handleUndoArtist(artist.name)}
+                                className="text-red-400 hover:text-red-300 hover:bg-red-500/10"
+                              >
+                                <Undo2 className="w-4 h-4" />
+                              </Button>
+                            </TooltipTrigger>
+                            <TooltipContent>
+                              <p>Undo</p>
+                            </TooltipContent>
+                          </Tooltip>
+                          <Tooltip>
+                            <TooltipTrigger>
+
+                              <Button variant="outline" size="sm" onClick={() => handleRemoveArtistFromPlaylist(artist.name)}>
+                                <Trash className="w-4 h-4 text-red-500" />
+                              </Button>
+                            </TooltipTrigger>
+                            <TooltipContent>
+                              <p>Delete</p>
+                            </TooltipContent>
+                          </Tooltip>
+                        </div>
                       </div>
                     )}
 
                     <div className="flex space-x-3">
                       <Button
+                        variant="outline"
                         onClick={() => onFetchSongs(artist)}
                         disabled={loadingArtist === artist.name || !artist.spotifyId}
-                        className="flex-1 bg-gradient-to-r from-neon-teal to-neon-purple hover:from-neon-teal/80 hover:to-neon-purple/80"
+                        className="flex-1"
                       >
                         {loadingArtist === artist.name ? (
                           <>
@@ -286,17 +453,16 @@ export function ArtistAccordion({
                       <div className="space-y-2">
                         <h4 className="text-sm font-medium text-gray-300 flex items-center">
                           <Music className="w-4 h-4 mr-2" />
-                          Fetched Tracks ({artist.songs.length})
+                          Track List ({artist.songs.length})
                         </h4>
                         <div className="max-h-48 overflow-y-auto space-y-1">
                           {artist.songs.map((song) => (
                             <div
                               key={song.id}
-                              className={`p-2 rounded text-sm truncate ${
-                                song.duplicate 
-                                  ? 'bg-yellow-500/10 border border-yellow-500/30 text-yellow-300' 
-                                  : 'bg-white/5 text-gray-300'
-                              }`}
+                              className={`p-2 rounded text-sm truncate ${song.duplicate
+                                ? 'bg-yellow-500/10 border border-yellow-500/30 text-yellow-300'
+                                : 'bg-white/5 text-gray-300'
+                                }`}
                             >
                               <div className="flex justify-between items-center">
                                 <span className="font-medium">{song.title}</span>
