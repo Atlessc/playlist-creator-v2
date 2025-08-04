@@ -1,58 +1,27 @@
 import { create } from 'zustand'
 import { persist, createJSONStorage } from 'zustand/middleware'
-import type { SongInfo, ArtistInfo, StoreState } from '../types'
+import type { SongInfo, StoreState } from '../types'
 
-// Extend ArtistInfo to include loading & Spotify data
-export interface ExtendedArtist extends ArtistInfo {
-  spotifyData?: any;
-  isLoading: boolean;
-}
-
-export interface UnifiedStore extends StoreState {
-  // Auth tokens for Spotify
-  accessToken: string | null
-  refreshToken: string | null
-
-  // Session-like actions
-  setTokens: (accessToken: string, refreshToken?: string) => void
-  clearTokens: () => void
-
-  // Enhanced artist management
-  setArtistLoading: (artistName: string, loading: boolean) => void
-  setSpotifyArtist: (artistName: string, spotifyData: any) => void
-  setArtistTracks: (artistName: string, tracks: SongInfo[]) => void
-  addArtistTracks: (artistName: string, tracks: SongInfo[]) => void
-  removeTrack: (trackId: string) => void
-
-  // Playlist management by ID order
-  reorderPlaylist: (trackIds: string[]) => void
-  setSpotifyPlaylist: (playlistId: string) => void
-
-  // Utility getters
-  getAllTracks: () => SongInfo[]
-  getDuplicateTracks: () => Set<string>
-}
-
-export const useStore = create<UnifiedStore>()(
+export const useStore = create<StoreState>()(
   persist(
     (set, get) => ({
-      // ==== existing state from StoreState ==== //
+      // States:
+      spotifyClientId: null,
       isAuthenticated: false,
       projects: [],
       currentProjectIndex: 0,
       isLoading: false,
       error: null,
-      // ========================================= //
-
-      // ==== new state ==== //
       accessToken: null,
       refreshToken: null,
-      // =================== //
 
-      // ==== existing actions ==== //
+      // Actions:
       setAuthenticated: (val) => set({ isAuthenticated: val }),
+
       addProject: (proj) => set(state => ({ projects: [...state.projects, proj] })),
+
       setCurrentProject: (idx) => set({ currentProjectIndex: idx }),
+
       confirmArtist: (artistName, spotifyData) => {
         const state = get()
         const proj = state.projects[state.currentProjectIndex]
@@ -61,7 +30,8 @@ export const useStore = create<UnifiedStore>()(
         )
         set({ projects: [...state.projects] })
       },
-      undoArtist: (artistName) => {
+
+      undoConfirmArtist: (artistName) => {
         const state = get()
         const proj = state.projects[state.currentProjectIndex]
         proj.artists = proj.artists.map(a =>
@@ -72,6 +42,7 @@ export const useStore = create<UnifiedStore>()(
         proj.combinedSongs = proj.combinedSongs.filter(s => s.artist !== artistName)
         set({ projects: [...state.projects] })
       },
+
       addSongs: (artistName, songs) => {
         const state = get()
         const proj = state.projects[state.currentProjectIndex]
@@ -87,6 +58,7 @@ export const useStore = create<UnifiedStore>()(
         )
         set({ projects: [...state.projects] })
       },
+
       removeSong: (id) => {
         const state = get()
         const proj = state.projects[state.currentProjectIndex]
@@ -96,6 +68,7 @@ export const useStore = create<UnifiedStore>()(
         })
         set({ projects: [...state.projects] })
       },
+
       moveSong: (from, to) => {
         const state = get()
         const list = state.projects[state.currentProjectIndex].combinedSongs
@@ -106,12 +79,15 @@ export const useStore = create<UnifiedStore>()(
         state.projects[state.currentProjectIndex].combinedSongs = updated
         set({ projects: [...state.projects] })
       },
+
       setError: (err) => set({ error: err }),
+
       setPlaylistId: (pid) => {
         const state = get()
         state.projects[state.currentProjectIndex].playlistId = pid
         set({ projects: [...state.projects] })
       },
+
       addArtistToProject: (artistName) => {
         const state = get()
         const proj = state.projects[state.currentProjectIndex]
@@ -120,6 +96,7 @@ export const useStore = create<UnifiedStore>()(
         set({ projects: [...state.projects] })
         return true
       },
+
       removeArtistFromProject: (artistName) => {
         const state = get()
         const proj = state.projects[state.currentProjectIndex]
@@ -127,12 +104,11 @@ export const useStore = create<UnifiedStore>()(
         proj.combinedSongs = proj.combinedSongs.filter(s => s.artist !== artistName)
         set({ projects: [...state.projects] })
       },
-      // ========================= //
 
-      // ==== migrated actions ==== //
       setTokens: (accessToken, refreshToken) => {
         set({ accessToken, refreshToken: refreshToken ?? get().refreshToken })
       },
+
       clearTokens: () => set({ accessToken: null, refreshToken: null }),
 
       setArtistLoading: (artistName, loading) => {
@@ -161,7 +137,6 @@ export const useStore = create<UnifiedStore>()(
         proj.artists = proj.artists.map(a =>
           a.name === artistName ? { ...a, songs: tracks } : a
         )
-        // also update combinedSongs, replacing old tracks from this artist
         proj.combinedSongs = [
           ...proj.combinedSongs.filter(s => s.artist !== artistName),
           ...tracks
@@ -176,25 +151,20 @@ export const useStore = create<UnifiedStore>()(
         const existingIds = new Set(existing.map(s => s.id))
         const unique = newTracks.filter(s => !existingIds.has(s.id))
         if (unique.length > 0) {
-          // append to artist's songs
           proj.artists = proj.artists.map(a =>
             a.name === artistName
               ? { ...a, songs: [...existing, ...unique] }
               : a
           )
-          // append to combinedSongs too
           proj.combinedSongs.push(...unique)
           set({ projects: [...state.projects] })
         }
       },
-
-
+      
       removeTrack: (trackId) => {
         const state = get()
         const proj = state.projects[state.currentProjectIndex]
-        // remove from combined
         proj.combinedSongs = proj.combinedSongs.filter(s => s.id !== trackId)
-        // remove from each artist's songs
         proj.artists = proj.artists.map(a => ({
           ...a,
           songs: a.songs.filter(s => s.id !== trackId)
@@ -232,8 +202,39 @@ export const useStore = create<UnifiedStore>()(
           if (c >= 1) dupes.add(s.id)
         })
         return dupes
+      },
+
+      updateProjectTitle: (newTitle) => {
+        const state = get()
+        const proj = state.projects[state.currentProjectIndex]
+        if (proj) {
+          proj.title = newTitle
+          set({ projects: [...state.projects] })
+        }
+      },
+
+      setMainPlaylistUri: (uri) => {
+        const state = get()
+        const proj = state.projects[state.currentProjectIndex]
+        if (proj) {
+          proj.playlistUrl = uri
+          set({ projects: [...state.projects] })
+        }
+      },
+      deleteProject: (index) => {
+        const state = get()
+        if (index < 0 || index >= state.projects.length) return
+        const updatedProjects = state.projects.filter((_, i) => i !== index)
+        set({
+          projects: updatedProjects,
+          currentProjectIndex: Math.max(0, state.currentProjectIndex - 1)
+        })
       }
+
     }),
+
+
+
     {
       name: 'playlist-creator-storage',
       storage: createJSONStorage(() => localStorage),
