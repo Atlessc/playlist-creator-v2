@@ -2,7 +2,8 @@ import { useState, useEffect, useCallback } from 'react'
 import Spotified, { type OAuth2Scope, SpotifyApiError } from 'spotified'
 
 const TOKEN_URL = 'https://accounts.spotify.com/api/token'
-const CLIENT_ID = import.meta.env.VITE_SPOTIFY_CLIENT_ID!
+const CLIENT_ID = import.meta.env.VITE_SPOTIFY_CLIENT_ID
+
 
 // Helper: Refresh the access token using the stored refresh token
 async function refreshAccessToken(spotified: Spotified) {
@@ -12,7 +13,7 @@ async function refreshAccessToken(spotified: Spotified) {
     const body = new URLSearchParams({
       grant_type: 'refresh_token',
       refresh_token: refreshToken,
-      client_id: CLIENT_ID,                // PKCE flow requires client_id only :contentReference[oaicite:4]{index=4}
+      client_id: CLIENT_ID,                // PKCE flow requires client_id only 
     })
     const res = await fetch(TOKEN_URL, {
       method: 'POST',
@@ -26,7 +27,7 @@ async function refreshAccessToken(spotified: Spotified) {
     const expiresIn = data.expires_in as number
     const nextExpiry = Date.now() + expiresIn * 1000
     localStorage.setItem('accessToken', data.access_token)
-    // PKCE flow often returns a new refresh token; fallback to old if absent :contentReference[oaicite:5]{index=5}
+    // PKCE flow often returns a new refresh token; fallback to old if absent
     localStorage.setItem('refreshToken', data.refresh_token ?? refreshToken)
     localStorage.setItem('tokenExpiresAt', String(nextExpiry))
     spotified.setBearerToken(data.access_token)
@@ -91,7 +92,7 @@ export const useSpotified = (
     try {
       const tokenResponse = await spotified.auth.AuthorizationCodePKCE
         .requestAccessToken(code, codeVerifier, redirectUri)
-      // Spotify returns access_token, refresh_token, expires_in :contentReference[oaicite:6]{index=6}
+      // Spotify returns access_token, refresh_token, expires_in
       const expiresIn = tokenResponse.expires_in
       const expiry = Date.now() + expiresIn * 1000
 
