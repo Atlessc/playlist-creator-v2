@@ -15,7 +15,7 @@ import {
   getTopTracks,
   // getLatestAlbumTracks 
 } from '../services/spotifyService';
-import type { ArtistInfo, SongInfo } from '../types';
+import type { ArtistInfo, SongInfo, PlaylistProject } from '../types';
 import { toast } from 'sonner';
 import { Sparkles, Music } from 'lucide-react';
 
@@ -39,7 +39,7 @@ export default function HomePage() {
     authenticate,
     handleCallback,
     isAuthenticated,
-    error,
+    error
   } = useSpotified(
     import.meta.env.VITE_SPOTIFY_CLIENT_ID,
     'http://localhost:5173/',
@@ -52,11 +52,22 @@ export default function HomePage() {
   // pull only the actions & state you need
   const projects = useStore(s => s.projects);
   const currentProjectIndex = useStore(s => s.currentProjectIndex);
-  const setAuthenticated = useStore(s => s.setAuthenticated);
-
+  const setAuthenticated = useStore(s => s.setAuthenticated)
   const addArtistTracks = useStore(s => s.addArtistTracks)
+  const addProject = useStore(s => s.addProject);
 
-  const currentProject = projects[currentProjectIndex];
+  const clearTokens = useStore(s => s.clearTokens)
+
+
+  const [currentProject, setCurrentProject] = useState<PlaylistProject | null>(null);
+
+  useEffect(() => {
+    if (isAuthenticated && projects.length > 0) {
+      setCurrentProject(projects[currentProjectIndex]);
+    } else {
+      setCurrentProject(null);
+    }
+  }, [isAuthenticated, projects, currentProjectIndex]);
 
   // finalize OAuth on mount
   useEffect(() => {
@@ -70,9 +81,17 @@ export default function HomePage() {
     setAuthenticated(isAuthenticated);
   }, [isAuthenticated, setAuthenticated]);
   // Update store authentication state
+
   useEffect(() => {
-    setAuthenticated(isAuthenticated);
-  }, [isAuthenticated, setAuthenticated]);
+    if (projects.length === 0) {
+      addProject({
+        title: "My First Festival",
+        artists: [],
+        combinedSongs: [],
+        playlistId: ""
+      })
+    }
+  }, [projects.length, addProject])
 
   const handleFetchSongs = useCallback(
     async (artist: ArtistInfo): Promise<void> => {
@@ -123,18 +142,32 @@ export default function HomePage() {
     [spotified, addArtistTracks]
   )
 
+  const handleSignOut = useCallback(() => {
+    // 1) wipe the persisted Spotify tokens
+    localStorage.removeItem('accessToken')
+    localStorage.removeItem('refreshToken')
+    localStorage.removeItem('tokenExpiresAt')
+
+    // 2) reset your Zustand store
+    clearTokens()
+    setAuthenticated(false)
+
+    // 3) give it a full reload so useSpotified re-inits without a token
+    window.location.reload()
+  }, [clearTokens, setAuthenticated])
+
   const allConfirmed = useMemo(
-    () => currentProject.artists.every(a => a.confirmed),
-    [currentProject.artists]
+    () => currentProject?.artists?.every(a => a.confirmed),
+    [currentProject?.artists]
   );
 
   const fetchAllSongs = useCallback(async () => {
-    for (const artist of currentProject.artists) {
+    for (const artist of currentProject?.artists ?? []) {
       if (artist.confirmed && artist.songs.length === 0) {
         await handleFetchSongs(artist);
       }
     }
-  }, [currentProject.artists, handleFetchSongs]);
+  }, [currentProject?.artists, handleFetchSongs]);
 
   if (!isAuthenticated) {
     return (
@@ -150,14 +183,11 @@ export default function HomePage() {
           <div className="mb-8">
             <div className="mb-6">
               <Sparkles className="w-20 h-20 mx-auto mb-4 text-neon-purple animate-pulse" />
-              <h1 className="text-5xl md:text-7xl font-bold bg-gradient-to-r from-neon-purple via-neon-pink to-neon-teal bg-clip-text text-transparent mb-4">
-                Beyond Wonderland
+              <h1 className="text-5xl md:text-7xl font-bold text-White mb-4">
+                Playlist Creator
               </h1>
-              <h2 className="text-2xl md:text-3xl font-semibold text-white mb-2">
-                The Gorge 2025
-              </h2>
               <p className="text-lg text-gray-300 max-w-2xl mx-auto">
-                Create the perfect festival playlist with tracks from all your favorite Beyond Wonderland artists
+                Create the perfect festival playlist with tracks from all your favorite artists
               </p>
             </div>
 
@@ -214,16 +244,15 @@ export default function HomePage() {
           <div className="container mx-auto px-4 py-4">
             <div className="flex items-center justify-between">
               <div>
-                <h1 className="text-2xl font-bold bg-gradient-to-r from-neon-purple to-neon-pink bg-clip-text text-transparent">
-                  Beyond Wonderland 2025
+                <h1 className="text-2xl font-bold text-White">
+                  Playlist Creator
                 </h1>
-                <p className="text-sm text-gray-400">Playlist Generator</p>
               </div>
 
               <div className="flex items-center space-x-4">
                 <ProjectManager />
 
-                {allConfirmed && currentProject.artists.some(a => a.songs.length === 0) && (
+                {allConfirmed && currentProject?.artists.some(a => a.songs.length === 0) && (
                   <Button
                     onClick={fetchAllSongs}
                     className="bg-gradient-to-r from-neon-teal to-neon-purple hover:from-neon-teal/80 hover:to-neon-purple/80"
@@ -231,19 +260,26 @@ export default function HomePage() {
                     Fetch All Songs
                   </Button>
                 )}
+                <Button
+                  onClick={handleSignOut}
+                  className="bg-red-600 hover:bg-red-700 text-white font-bold py-2 px-4 rounded"
+                >
+                  Sign Out
+                </Button>
               </div>
+
             </div>
           </div>
         </header>
 
         {/* Main content */}
-        <main className="container mx-auto px-4 py-8">
+        <main className="container mx-auto px-4 py-8 h-[calc(100vh-80px)] overflow-hidden">
           <div className="grid lg:grid-cols-2 gap-8">
             {/* Left column - Artists */}
-            <div className="space-y-6">
-              
+            <div className="space-y-6 bg-black/20 backdrop-blur-sm border border-white/10 rounded-xl p-6">
+
               <ArtistAccordion
-                artists={currentProject.artists}
+                artists={currentProject?.artists ?? []}
                 spotified={spotified}
                 onFetchSongs={handleFetchSongs}
                 loadingArtist={loadingArtist}
@@ -251,10 +287,12 @@ export default function HomePage() {
             </div>
 
             {/* Right column - Playlist */}
-            <div className="lg:sticky lg:top-24 lg:self-start">
-              <div className="bg-black/20 backdrop-blur-sm border border-white/10 rounded-xl p-6">
+            <div className="lg:sticky lg:top-24 lg:self-start h-full">
+              <div 
+              className="bg-black/20 backdrop-blur-sm border border-white/10 rounded-xl p-6"
+              >
                 <PlaylistTracks
-                  songs={currentProject.combinedSongs}
+                  songs={currentProject?.combinedSongs ?? []}
                   spotified={spotified}
                 />
               </div>
