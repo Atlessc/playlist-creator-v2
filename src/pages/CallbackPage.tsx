@@ -2,6 +2,7 @@
 import { useEffect } from 'react'
 import { useSpotified } from '../lib/useSpotified'
 import { useNavigate } from 'react-router-dom'
+import { toast } from 'sonner'
 
 export default function CallbackPage() {
   const navigate = useNavigate()
@@ -14,6 +15,8 @@ export default function CallbackPage() {
     if (codeParam) {
       handleCallback(codeParam)
       navigate('/')  // go back to home after handling
+    } else {
+      toast.error('No code parameter found in URL')
     }
   }, [])
   return (
