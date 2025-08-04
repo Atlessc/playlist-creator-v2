@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { Button } from './ui/button';
 import { Badge } from './ui/badge';
-import { 
+import {
   Dialog,
   DialogContent,
   DialogDescription,
@@ -12,17 +12,23 @@ import {
 } from './ui/dialog';
 import { Input } from './ui/input';
 import { Label } from './ui/label';
-import { 
-  Plus, 
-  FolderOpen, 
-  Music, 
+import {
+  Plus,
+  FolderOpen,
+  Music,
   Users,
-  // Trash2,
-  // Edit3
+  Trash2,
+  // Edit3,
+  LogIn
 } from 'lucide-react';
 import { useStore } from '../lib/store';
 import { toast } from 'sonner';
 import type { PlaylistProject } from '../types';
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipTrigger,
+} from './ui/tooltip';
 
 export function ProjectManager() {
   const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false);
@@ -53,7 +59,7 @@ export function ProjectManager() {
     setIsCreateDialogOpen(false);
     setNewProjectTitle('');
     setNewProjectDescription('');
-    
+
     toast.success(`✨ Created new project: ${newProject.title}`);
   };
 
@@ -81,30 +87,39 @@ export function ProjectManager() {
               Switch Project
             </Button>
           </DialogTrigger>
+
           <DialogContent className="bg-black/90 backdrop-blur-md border-white/20 text-white">
             <DialogHeader>
-              <DialogTitle className="text-xl font-bold bg-gradient-to-r from-neon-purple to-neon-pink bg-clip-text text-transparent">
-                Your Projects
+              <DialogTitle className="text-xl font-bold bg-gradient-to-r from-neon-purple to-neon-pink bg-clip-text text-white">
+                Your Playlist Projects
               </DialogTitle>
               <DialogDescription className="text-gray-300">
                 Switch between your playlist projects
               </DialogDescription>
             </DialogHeader>
-            
+
             <div className="space-y-3 max-h-64 overflow-y-auto">
               {projects.map((project, index) => (
                 <div
                   key={index}
-                  className={`p-4 rounded-lg border cursor-pointer transition-all ${
-                    index === currentProjectIndex
+                  className={`p-4 rounded-lg border transition-all ${index === currentProjectIndex
                       ? 'border-neon-purple bg-neon-purple/10'
                       : 'border-white/10 bg-white/5 hover:bg-white/10'
-                  }`}
-                  onClick={() => handleSwitchProject(index)}
+                    }`}
                 >
                   <div className="flex items-center justify-between">
                     <div className="flex-1">
-                      <h4 className="font-medium text-white">{project.title}</h4>
+                      <h4 className="font-medium text-white flex">{project.title}&nbsp;{project.playlistUrl && (
+                          <span className="flex items-center">
+                          <Badge className="border-transparent bg-green-700 text-white ">
+                            Completed
+                          </Badge>
+                        </span>
+                        )}&nbsp;{index === currentProjectIndex && (
+                        <Badge variant="secondary" className="bg-neon-purple/20 text-neon-purple border-neon-purple/30">
+                          Current
+                        </Badge>
+                      )}</h4>
                       {project.description && (
                         <p className="text-sm text-gray-400 mt-1">{project.description}</p>
                       )}
@@ -117,14 +132,52 @@ export function ProjectManager() {
                           <Users className="w-3 h-3 mr-1" />
                           {project.artists.filter(a => a.confirmed).length} artists
                         </span>
+                        
                       </div>
                     </div>
-                    
-                    {index === currentProjectIndex && (
-                      <Badge variant="secondary" className="bg-neon-purple/20 text-neon-purple border-neon-purple/30">
-                        Current
-                      </Badge>
+
+                    {index != currentProjectIndex && (
+                      <>
+                        <span className="flex items-center">
+                          <Tooltip>
+                            <TooltipTrigger>
+                              <Button
+                                variant="outline"
+                                size="sm"
+                                className="border-white/20 text-white hover:bg-white/10"
+                                onClick={() => handleSwitchProject(index)}
+                              >
+                                <LogIn className="w-4 h-4" />
+                              </Button>
+                            </TooltipTrigger>
+                            <TooltipContent>
+                              Switch to this project
+                            </TooltipContent>
+                          </Tooltip>
+                        </span>
+                        &nbsp;&nbsp;
+                      </>
                     )}
+                    <span className="flex items-center">
+                      <Tooltip>
+                        <TooltipTrigger>
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            className="border-white/20 text-white hover:bg-white/10"
+                            onClick={() => 
+                              useStore.getState().deleteProject(index)
+                            }
+                          >
+                            <Trash2 className="w-4 h-4" />
+                          </Button>
+                        </TooltipTrigger>
+                        <TooltipContent>
+                          Delete Project
+                        </TooltipContent>
+                      </Tooltip>
+                      
+                    </span>
                   </div>
                 </div>
               ))}
@@ -136,8 +189,8 @@ export function ProjectManager() {
       {/* Create New Project */}
       <Dialog open={isCreateDialogOpen} onOpenChange={setIsCreateDialogOpen}>
         <DialogTrigger asChild>
-          <Button 
-            size="sm" 
+          <Button
+            size="sm"
             className="bg-gradient-to-r from-neon-teal to-neon-purple hover:from-neon-teal/80 hover:to-neon-purple/80"
           >
             <Plus className="w-4 h-4 mr-2" />
@@ -153,7 +206,7 @@ export function ProjectManager() {
               Start a new playlist project for your festival or event
             </DialogDescription>
           </DialogHeader>
-          
+
           <div className="space-y-4">
             <div>
               <Label htmlFor="title" className="text-white">Project Title</Label>
@@ -165,7 +218,7 @@ export function ProjectManager() {
                 className="bg-white/10 border-white/20 text-white placeholder:text-gray-400 focus:border-neon-purple"
               />
             </div>
-            
+
             <div>
               <Label htmlFor="description" className="text-white">Description (Optional)</Label>
               <Input
