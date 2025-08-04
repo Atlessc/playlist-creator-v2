@@ -19,9 +19,9 @@ import {
   PlusCircle,
 } from 'lucide-react'
 import { getAllArtistAlbums, getFullAlbumTracks } from '../services/spotifyService'
-import { useStore, type UnifiedStore } from '@/lib/store'           // ➊ unified store hook
+import { useStore } from '@/lib/store'           // ➊ unified store hook
 import { toast } from 'sonner'
-import type { ArtistInfo, SongInfo } from '../types'
+import type { ArtistInfo, SongInfo, StoreState } from '../types'
 import Spotified from 'spotified'
 
 interface AlbumInfo {
@@ -58,7 +58,7 @@ export function AlbumBrowser({ artist, spotified }: AlbumBrowserProps) {
 
   // --- selector for this artist’s songs in the unified store ---
   const selectTracks = useCallback(
-    (s: UnifiedStore): SongInfo[] => {
+    (s: StoreState): SongInfo[] => {
       const proj = s.projects[s.currentProjectIndex]
       const artistEntry = proj?.artists.find(a => a.name === artist.name)
       return artistEntry?.songs ?? EMPTY_TRACKS
@@ -85,7 +85,9 @@ export function AlbumBrowser({ artist, spotified }: AlbumBrowserProps) {
       )
       setAlbums(data)
     } catch {
-      toast.error(`Failed to load albums for ${artist.name}`)
+      if (albums.length === 0) {
+        toast.error(`Failed to load albums for ${artist.name}`)
+      }
     } finally {
       setLoadingAlbums(false)
     }
@@ -153,6 +155,7 @@ export function AlbumBrowser({ artist, spotified }: AlbumBrowserProps) {
         toast.error(
           `All tracks from "${selectedAlbum.album.name}" are already added.`
         )
+
       } else {
         addArtistTracks(artist.name, newSongs)
         const totalAfter = existingTracks.length + newSongs.length
@@ -176,7 +179,7 @@ export function AlbumBrowser({ artist, spotified }: AlbumBrowserProps) {
         <Button
           onClick={handleOpenAlbums}
           variant="outline"
-          size="sm"
+
           className="border-neon-teal/50 text-neon-teal hover:bg-neon-teal/10"
         >
           <Disc3 className="w-4 h-4 mr-2" />
