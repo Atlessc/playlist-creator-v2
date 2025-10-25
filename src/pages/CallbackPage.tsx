@@ -7,7 +7,7 @@ import { toast } from 'sonner'
 export default function CallbackPage() {
   const navigate = useNavigate()
   const { handleCallback } = useSpotified(import.meta.env.VITE_SPOTIFY_CLIENT_ID, 'http://localhost:5173/callback', [
-      'playlist-modify-private', 'user-read-private'
+      'playlist-modify-private', 'user-read-private', 'playlist-modify-public'
   ])
   useEffect(() => {
     const params = new URLSearchParams(window.location.search)

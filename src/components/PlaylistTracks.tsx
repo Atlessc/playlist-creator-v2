@@ -240,7 +240,9 @@ export function PlaylistTracks({ songs, spotified }: PlaylistTracksProps) {
       // Get user profile to get user ID
       const userProfile = await spotified.user.getCurrentUserProfile();
       const userId = userProfile.id;
+      console.log('User ID:', userId);
 
+      console.log('About to create playlist...');
       // Create playlist
       const playlist = await createPlaylist(
         spotified,

@@ -43,7 +43,7 @@ export default function HomePage() {
   } = useSpotified(
     import.meta.env.VITE_SPOTIFY_CLIENT_ID,
     'http://localhost:5173/',
-    ['playlist-modify-private', 'user-read-private']
+    ['playlist-modify-private', 'user-read-private', 'playlist-modify-public']
   );
 
   // track which artist is currently loading

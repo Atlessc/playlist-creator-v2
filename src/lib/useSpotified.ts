@@ -8,6 +8,7 @@ const CLIENT_ID = import.meta.env.VITE_SPOTIFY_CLIENT_ID
 // Helper: Refresh the access token using the stored refresh token
 async function refreshAccessToken(spotified: Spotified) {
   const refreshToken = localStorage.getItem('refreshToken')
+  console.log('🔄 Refreshing Spotify access token...', { refreshToken })
   if (!refreshToken) return
   try {
     const body = new URLSearchParams({
@@ -27,9 +28,13 @@ async function refreshAccessToken(spotified: Spotified) {
     const expiresIn = data.expires_in as number
     const nextExpiry = Date.now() + expiresIn * 1000
     localStorage.setItem('accessToken', data.access_token)
+    console.log('New access token:', data.access_token)
     // PKCE flow often returns a new refresh token; fallback to old if absent
     localStorage.setItem('refreshToken', data.refresh_token ?? refreshToken)
+    console.log('New refresh token:', data.refresh_token ?? refreshToken)
     localStorage.setItem('tokenExpiresAt', String(nextExpiry))
+    console.log('Token expiry at:', new Date(nextExpiry).toLocaleTimeString())
+
     spotified.setBearerToken(data.access_token)
 
     // Schedule next refresh 60 seconds before expiry
