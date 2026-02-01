@@ -2,6 +2,23 @@ import { create } from 'zustand'
 import { persist, createJSONStorage } from 'zustand/middleware'
 import type { SongInfo, StoreState } from '../types'
 
+
+// const initialArtists: string[] = [
+//   // Beyond Wonderland 2025 lineup (artist names)
+//   "Ahee", "AMP", "Andy C", "Barely Alive", "Bassrush Experience",
+//   "Carola", "Chris Lorenzo", "CHYL", "Combine", "Eli Brown",
+//   "Friction", "Illenium", "Insomniac Records", "INZO", "Jackie Hollander",
+//   "Layton Giordani", "Level Up", "Lilly Palmer", "Loud Luxury", "Maddix",
+//   "Me N Ü", "MYSTRVS", "San Pacho", "SLANDER", "SQWAD", "Steller",
+//   "Timmy Trumpet", "Tita Lau", "Tony H", "Walker & Royce", "Zomboy",
+//   "Alex Wann", "AMÉMÉ", "Audien", "Canabliss", "Chase & Status",
+//   "Cloonee", "Culture Shock", "Discovery Project", "DJ Snake", "DoBadlyy",
+//   "Ghastly presents Ghengar", "HoneyLuv", "Hugel", "Infekt", "It's Murph",
+//   "Koister", "LP Giobbi", "MPH", "NGHTMRE", "OG Nixin", "Peekaboo",
+//   "Said The Sky", "Sara Landry", "Shanghai Doom", "Subtronics", "Tom & Collins",
+//   "Trace", "Trivecta", "Wolfstax"
+// ]
+
 export const useStore = create<StoreState>()(
   persist(
     (set, get) => ({
@@ -247,3 +264,5 @@ export const useStore = create<StoreState>()(
     }
   )
 )
+
+
