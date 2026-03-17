@@ -31,7 +31,7 @@ No more copy-pasting song links—just type, click, and jam. 🎶
 
    - Hit up the [Spotify Developer Dashboard](https://developer.spotify.com/dashboard/)
    - Create an app → grab **Client ID** & **Client Secret**
-   - Set Redirect URI → `http://localhost:5173/callback`
+   - Set Redirect URI → `https://10.0.0.195:5173/callback`
 4. **Create your `.env`**
    ```bash
    cp .env.example .env
@@ -40,13 +40,13 @@ No more copy-pasting song links—just type, click, and jam. 🎶
    ```bash
    VITE_SPOTIFY_CLIENT_ID=your_client_id_here
    VITE_SPOTIFY_CLIENT_SECRET=your_client_secret_here
-   VITE_REDIRECT_URI=http://localhost:5173/callback
+   VITE_REDIRECT_URI=https://10.0.0.195:5173/callback
    ```
 6. **Run in dev mode**
    ```bash
-   npm run dev
+   npm run dev2
    ```
-   Open [http://localhost:5173](http://localhost:5173) — no cap, you’re ready to rock. 🤘
+   Open [https://10.0.0.195:5173/](https://10.0.0.195:5173/) — no shit, you’re ready to build. 🤘
 7. **Build for prod**
    ```bash
    npm run build
@@ -152,4 +152,11 @@ export default defineConfig({
 
 ## License
 
-MIT © 2025 Atlessc – rock on! 🤘
+MIT © 2025 Atlessc 🤘
+
+
+## CHANGE LOG
+
+FUCK SPOTIFY FOR NOT LETTING ME USE `localhost` FOR REDIRECT URIs. I’M SICK OF THIS BULLSHIT. IF YOU’RE READING THIS, JUST KNOW I HATE SPOTIFY AND THEIR STUPID DEVELOPER DASHBOARD. THEY’RE THE WORST. I HOPE THEIR SERVICE CRASHES AND THEY LOSE ALL THEIR USERS.
+
+tysm
