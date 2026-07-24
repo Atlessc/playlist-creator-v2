@@ -39,8 +39,9 @@ Including the artist is strongly recommended because it substantially improves m
 3. Select the JSON file.
 4. Leave the existing-playlist field blank to create a new playlist, or paste a Spotify playlist URL, URI, or ID to append.
 5. Start the search.
-6. Review the matched and unmatched counts.
-7. Upload the confident matches.
+6. Review every low-confidence song. The importer shows up to five nearby Spotify results with title, artist, album, score, and an **Open in Spotify** link.
+7. Choose **Use this track** for the correct result or **Skip this song** when none are correct.
+8. Upload after all unresolved songs have been reviewed.
 
 ## Rate-limit behavior
 
@@ -54,11 +55,23 @@ Including the artist is strongly recommended because it substantially improves m
 
 ## Matching behavior
 
-The importer searches using exact track and artist qualifiers when an artist is present. It scores the returned candidates and rejects low-confidence matches rather than silently uploading the wrong recording.
+The importer first searches using exact track and artist qualifiers. When the top result is not confident enough, it now also searches by title and then with a looser title-and-artist query. Results from all searches are merged, deduplicated, scored, and ranked.
+
+Low-confidence tracks are not discarded. Up to five nearby candidates are saved in the checkpoint and displayed for manual selection. Upload stays disabled until every unresolved entry is either manually matched or explicitly skipped.
 
 Unless the input specifically requests one, alternate versions such as live, remix, karaoke, tribute, acoustic, sped-up, slowed, and remastered tracks receive a matching penalty.
 
-Use **Download unmatched JSON** to export anything that needs manual correction.
+Use **Download review JSON** to export unresolved or skipped entries together with their candidate results.
+
+### Existing checkpoints from the first importer version
+
+Older checkpoints do not contain close-match candidates because that version discarded them. You do not need to search the original 1,000 songs again:
+
+1. Download the old `unmatched-songs.json` file.
+2. Import that smaller file as a new bulk job.
+3. Search only those unmatched songs.
+4. Manually choose the correct candidates.
+5. Paste the existing Spotify playlist URL or ID and append the recovered tracks.
 
 ## Spotify setup
 
