@@ -1,6 +1,7 @@
 import { BrowserRouter as Router, Routes, Route } from 'react-router-dom';
 import HomePage from './pages/home';
 import CallbackPage from './pages/CallbackPage';
+import BulkImportPage from './pages/BulkImportPage';
 import { Toaster } from 'sonner';
 import { TooltipProvider } from './components/ui/tooltip';
 
@@ -12,6 +13,7 @@ function App() {
         <Routes>
           <Route path="/" element={<HomePage />} />
           <Route path="/callback" element={<CallbackPage />} />
+          <Route path="/bulk" element={<BulkImportPage />} />
         </Routes>
         <Toaster
           position="bottom-right"
