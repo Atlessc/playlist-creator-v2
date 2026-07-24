@@ -13,11 +13,18 @@ export interface SpotifyTrackMatch {
   spotifyUrl?: string
 }
 
+export interface SpotifyTrackCandidate extends SpotifyTrackMatch {
+  score: number
+}
+
 export interface SongSearchResult {
   input: SongImportItem
   track: SpotifyTrackMatch | null
+  candidates: SpotifyTrackCandidate[]
   query: string
   error?: string
+  matchType?: 'automatic' | 'manual'
+  skipped?: boolean
 }
 
 export interface SearchProgress {
@@ -62,6 +69,7 @@ const SEARCH_ENDPOINT = 'https://api.spotify.com/v1/search'
 const API_BASE = 'https://api.spotify.com/v1'
 const DEFAULT_SEARCH_DELAY_MS = 400
 const MAX_RETRIES = 8
+const MAX_REVIEW_CANDIDATES = 5
 const VERSION_WORDS = /\b(live|remix|mix|karaoke|tribute|cover|sped up|slowed|acoustic|instrumental|radio edit|remaster(?:ed)?)\b/i
 
 function sleep(ms: number, signal?: AbortSignal): Promise<void> {
@@ -190,6 +198,7 @@ function normalize(value: string): string {
     .toLocaleLowerCase()
     .replace(/&/g, ' and ')
     .replace(/\b(feat(?:uring)?|ft)\.?\b.*$/i, '')
+    .replace(/\b(cast|soundtrack version)\b/g, ' ')
     .replace(/\([^)]*\)|\[[^\]]*\]/g, ' ')
     .replace(/[^a-z0-9]+/g, ' ')
     .trim()
@@ -237,10 +246,36 @@ function buildQuery(song: SongImportItem, includeArtist: boolean): string {
   return title
 }
 
+function buildLooseQuery(song: SongImportItem): string {
+  return [song.title, song.artist].filter(Boolean).join(' ')
+}
+
 async function runSearchQuery(query: string, signal?: AbortSignal): Promise<SpotifySearchTrack[]> {
   const params = new URLSearchParams({ q: query, type: 'track', market: 'US', limit: '10' })
   const response = await spotifyRequest<SpotifySearchResponse>(`${SEARCH_ENDPOINT}?${params}`, {}, signal)
   return response.tracks?.items ?? []
+}
+
+function mergeCandidates(...groups: SpotifySearchTrack[][]): SpotifySearchTrack[] {
+  const byId = new Map<string, SpotifySearchTrack>()
+  for (const track of groups.flat()) {
+    if (track.id && !byId.has(track.id)) byId.set(track.id, track)
+  }
+  return [...byId.values()]
+}
+
+function rankCandidates(song: SongImportItem, candidates: SpotifySearchTrack[]): Array<{
+  track: SpotifySearchTrack
+  match: SpotifyTrackMatch
+  score: number
+}> {
+  return candidates
+    .map((track) => {
+      const match = mapSpotifyTrack(track)
+      return match ? { track, match, score: scoreTrack(song, track) } : null
+    })
+    .filter((candidate): candidate is { track: SpotifySearchTrack; match: SpotifyTrackMatch; score: number } => Boolean(candidate))
+    .sort((a, b) => b.score - a.score)
 }
 
 export async function searchSpotifyTrack(
@@ -250,27 +285,43 @@ export async function searchSpotifyTrack(
   const exactQuery = buildQuery(song, true)
 
   try {
-    let candidates = await runSearchQuery(exactQuery, signal)
-    if (!candidates.length && song.artist) {
-      candidates = await runSearchQuery(buildQuery(song, false), signal)
+    const exactCandidates = await runSearchQuery(exactQuery, signal)
+    let combinedCandidates = exactCandidates
+    let ranked = rankCandidates(song, combinedCandidates)
+    const minimumScore = song.artist ? 85 : 60
+
+    if (song.artist && (!ranked[0] || ranked[0].score < minimumScore)) {
+      const titleOnlyCandidates = await runSearchQuery(buildQuery(song, false), signal)
+      combinedCandidates = mergeCandidates(combinedCandidates, titleOnlyCandidates)
+      ranked = rankCandidates(song, combinedCandidates)
     }
 
-    const best = [...candidates]
-      .map((track) => ({ track, score: scoreTrack(song, track) }))
-      .sort((a, b) => b.score - a.score)[0]
+    if (!ranked[0] || ranked[0].score < minimumScore) {
+      const looseCandidates = await runSearchQuery(buildLooseQuery(song), signal)
+      combinedCandidates = mergeCandidates(combinedCandidates, looseCandidates)
+      ranked = rankCandidates(song, combinedCandidates)
+    }
 
-    const minimumScore = song.artist ? 85 : 60
+    const best = ranked[0]
+    const confidentTrack = best && best.score >= minimumScore ? best.match : null
+    const reviewCandidates: SpotifyTrackCandidate[] = confidentTrack
+      ? []
+      : ranked.slice(0, MAX_REVIEW_CANDIDATES).map(({ match, score }) => ({ ...match, score }))
+
     return {
       input: song,
-      track: best && best.score >= minimumScore ? mapSpotifyTrack(best.track) : null,
+      track: confidentTrack,
+      candidates: reviewCandidates,
       query: exactQuery,
-      error: best && best.score < minimumScore ? 'No confident match found' : undefined,
+      error: confidentTrack ? undefined : 'No confident match found',
+      matchType: confidentTrack ? 'automatic' : undefined,
     }
   } catch (error) {
     if (error instanceof DOMException && error.name === 'AbortError') throw error
     return {
       input: song,
       track: null,
+      candidates: [],
       query: exactQuery,
       error: error instanceof Error ? error.message : 'Unknown Spotify search error',
     }
