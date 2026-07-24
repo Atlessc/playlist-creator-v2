@@ -1,5 +1,15 @@
 import { useMemo, useRef, useState } from 'react'
-import { AlertTriangle, CheckCircle2, FileJson, Loader2, Pause, Play, Upload } from 'lucide-react'
+import {
+  AlertTriangle,
+  CheckCircle2,
+  ExternalLink,
+  FileJson,
+  Loader2,
+  Pause,
+  Play,
+  SkipForward,
+  Upload,
+} from 'lucide-react'
 import { toast } from 'sonner'
 import { Button } from './ui/button'
 import { Input } from './ui/input'
@@ -11,6 +21,7 @@ import {
   uploadTracksToSpotifyPlaylist,
   type SongImportItem,
   type SongSearchResult,
+  type SpotifyTrackCandidate,
 } from '../services/bulkPlaylistService'
 
 const CHECKPOINT_PREFIX = 'playlist-creator-bulk-import-v1'
@@ -79,10 +90,28 @@ export function BulkSongImporter() {
   const fingerprint = useMemo(() => getFingerprint(songs), [songs])
   const matchedResults = useMemo(() => results.filter((result) => result.track), [results])
   const unmatchedResults = useMemo(() => results.filter((result) => !result.track), [results])
+  const unresolvedResults = useMemo(
+    () => unmatchedResults.filter((result) => !result.skipped),
+    [unmatchedResults],
+  )
+  const skippedResults = useMemo(
+    () => unmatchedResults.filter((result) => result.skipped),
+    [unmatchedResults],
+  )
   const searchPercent = songs.length ? Math.round((results.length / songs.length) * 100) : 0
   const uploadPercent = matchedResults.length
     ? Math.round((uploadedCount / matchedResults.length) * 100)
     : 0
+
+  const saveResults = (nextResults: SongSearchResult[]) => {
+    setResults(nextResults)
+    writeCheckpoint({
+      fingerprint,
+      results: nextResults,
+      playlistId: activePlaylistId ?? undefined,
+      uploadedCount,
+    })
+  }
 
   const handleFile = async (file: File | undefined) => {
     if (!file) return
@@ -154,8 +183,51 @@ export function BulkSongImporter() {
     abortControllerRef.current?.abort()
   }
 
+  const handleSelectCandidate = (resultIndex: number, candidate: SpotifyTrackCandidate) => {
+    const nextResults = results.map((result, index) =>
+      index === resultIndex
+        ? {
+            ...result,
+            track: {
+              id: candidate.id,
+              uri: candidate.uri,
+              title: candidate.title,
+              artist: candidate.artist,
+              album: candidate.album,
+              spotifyUrl: candidate.spotifyUrl,
+            },
+            error: undefined,
+            matchType: 'manual' as const,
+            skipped: false,
+          }
+        : result,
+    )
+    saveResults(nextResults)
+    toast.success(`Selected “${candidate.title}” by ${candidate.artist}.`)
+  }
+
+  const handleSkipResult = (resultIndex: number) => {
+    const nextResults = results.map((result, index) =>
+      index === resultIndex ? { ...result, skipped: true } : result,
+    )
+    saveResults(nextResults)
+  }
+
+  const handleUndoReview = (resultIndex: number) => {
+    const nextResults = results.map((result, index) =>
+      index === resultIndex
+        ? { ...result, track: null, skipped: false, matchType: undefined, error: 'No confident match found' }
+        : result,
+    )
+    saveResults(nextResults)
+  }
+
   const handleUpload = async () => {
     if (!matchedResults.length || isUploading) return
+    if (unresolvedResults.length) {
+      toast.error(`Review or skip the remaining ${unresolvedResults.length} unresolved songs before uploading.`)
+      return
+    }
 
     const suppliedPlaylistId = extractSpotifyPlaylistId(existingPlaylist)
     if (existingPlaylist.trim() && !suppliedPlaylistId) {
@@ -224,8 +296,8 @@ export function BulkSongImporter() {
             <h2 className="text-2xl font-bold text-white">Bulk JSON Song Import</h2>
           </div>
           <p className="mt-2 max-w-3xl text-sm text-gray-300">
-            Import a JSON song list, search Spotify sequentially with 429 retry handling, resume interrupted runs,
-            and upload matches in Spotify-safe batches of 100.
+            Import a JSON song list, search Spotify sequentially with 429 retry handling, manually review close
+            matches, resume interrupted runs, and upload in Spotify-safe batches of 100.
           </p>
         </div>
 
@@ -282,11 +354,12 @@ export function BulkSongImporter() {
 
       {songs.length > 0 && (
         <div className="mt-6 space-y-5">
-          <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-5">
+          <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-6">
             <Stat label="Imported" value={songs.length} />
             <Stat label="Searched" value={results.length} />
             <Stat label="Matched" value={matchedResults.length} tone="success" />
-            <Stat label="Unmatched" value={unmatchedResults.length} tone={unmatchedResults.length ? 'warning' : undefined} />
+            <Stat label="Needs review" value={unresolvedResults.length} tone={unresolvedResults.length ? 'warning' : undefined} />
+            <Stat label="Skipped" value={skippedResults.length} />
             <Stat label="Uploaded" value={uploadedCount} />
           </div>
 
@@ -312,43 +385,175 @@ export function BulkSongImporter() {
 
             <Button
               onClick={handleUpload}
-              disabled={isSearching || isUploading || !matchedResults.length || results.length < songs.length}
+              disabled={
+                isSearching ||
+                isUploading ||
+                !matchedResults.length ||
+                results.length < songs.length ||
+                unresolvedResults.length > 0
+              }
               className="bg-green-600 hover:bg-green-700"
             >
               {isUploading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Upload className="mr-2 h-4 w-4" />}
-              {existingPlaylist.trim() || activePlaylistId ? 'Append matched tracks' : 'Create and upload playlist'}
+              {existingPlaylist.trim() || activePlaylistId ? 'Append reviewed tracks' : 'Create and upload playlist'}
             </Button>
 
             {unmatchedResults.length > 0 && (
               <Button
                 variant="outline"
-                onClick={() => downloadJson('unmatched-songs.json', unmatchedResults.map((result) => ({
-                  ...result.input,
-                  error: result.error,
-                  query: result.query,
-                })))}
+                onClick={() =>
+                  downloadJson(
+                    'unmatched-songs.json',
+                    unmatchedResults.map((result) => ({
+                      ...result.input,
+                      skipped: result.skipped,
+                      candidates: result.candidates ?? [],
+                      error: result.error,
+                      query: result.query,
+                    })),
+                  )
+                }
               >
-                Download unmatched JSON
+                Download review JSON
               </Button>
             )}
           </div>
 
-          {results.length === songs.length && (
-            <div className="flex items-start gap-3 rounded-lg border border-white/10 bg-white/5 p-4 text-sm text-gray-300">
-              {unmatchedResults.length ? (
+          {unresolvedResults.length > 0 && (
+            <div className="space-y-4">
+              <div className="flex items-start gap-3 rounded-lg border border-yellow-500/30 bg-yellow-500/10 p-4 text-sm text-yellow-100">
                 <AlertTriangle className="mt-0.5 h-5 w-5 shrink-0 text-yellow-400" />
-              ) : (
-                <CheckCircle2 className="mt-0.5 h-5 w-5 shrink-0 text-green-400" />
-              )}
+                <p>
+                  Spotify could not confidently identify {unresolvedResults.length} songs. Choose the correct nearby
+                  result or explicitly skip each one. Nothing unresolved will be silently uploaded.
+                </p>
+              </div>
+
+              {results.map((result, resultIndex) => {
+                if (result.track || result.skipped) return null
+                return (
+                  <ReviewCard
+                    key={`${result.input.position ?? resultIndex}-${result.input.title}`}
+                    result={result}
+                    onSelect={(candidate) => handleSelectCandidate(resultIndex, candidate)}
+                    onSkip={() => handleSkipResult(resultIndex)}
+                  />
+                )
+              })}
+            </div>
+          )}
+
+          {(skippedResults.length > 0 || results.some((result) => result.matchType === 'manual')) && (
+            <details className="rounded-lg border border-white/10 bg-white/5 p-4">
+              <summary className="cursor-pointer font-medium text-white">Reviewed decisions</summary>
+              <div className="mt-3 space-y-2">
+                {results.map((result, resultIndex) => {
+                  if (!result.skipped && result.matchType !== 'manual') return null
+                  return (
+                    <div
+                      key={`reviewed-${result.input.position ?? resultIndex}-${result.input.title}`}
+                      className="flex flex-wrap items-center justify-between gap-3 rounded-md border border-white/10 p-3 text-sm"
+                    >
+                      <div>
+                        <p className="font-medium text-white">
+                          {result.input.position ? `#${result.input.position} · ` : ''}
+                          {result.input.title} — {result.input.artist || 'Unknown artist'}
+                        </p>
+                        <p className="text-gray-400">
+                          {result.skipped
+                            ? 'Skipped'
+                            : `Manually matched to ${result.track?.title} — ${result.track?.artist}`}
+                        </p>
+                      </div>
+                      <Button variant="outline" size="sm" onClick={() => handleUndoReview(resultIndex)}>
+                        Review again
+                      </Button>
+                    </div>
+                  )
+                })}
+              </div>
+            </details>
+          )}
+
+          {results.length === songs.length && unresolvedResults.length === 0 && (
+            <div className="flex items-start gap-3 rounded-lg border border-green-500/30 bg-green-500/10 p-4 text-sm text-green-100">
+              <CheckCircle2 className="mt-0.5 h-5 w-5 shrink-0 text-green-400" />
               <p>
-                Search finished with {matchedResults.length} confident matches and {unmatchedResults.length} unmatched songs.
-                Only confident matches will be uploaded; unmatched entries are kept out rather than silently adding the wrong track.
+                Review complete: {matchedResults.length} tracks will upload and {skippedResults.length} songs will be
+                skipped.
               </p>
             </div>
           )}
         </div>
       )}
     </section>
+  )
+}
+
+function ReviewCard({
+  result,
+  onSelect,
+  onSkip,
+}: {
+  result: SongSearchResult
+  onSelect: (candidate: SpotifyTrackCandidate) => void
+  onSkip: () => void
+}) {
+  const candidates = result.candidates ?? []
+
+  return (
+    <article className="rounded-xl border border-yellow-500/30 bg-black/30 p-4">
+      <div className="flex flex-wrap items-start justify-between gap-3">
+        <div>
+          <p className="text-xs uppercase tracking-wide text-yellow-400">Needs manual match</p>
+          <h3 className="mt-1 text-lg font-semibold text-white">
+            {result.input.position ? `#${result.input.position} · ` : ''}
+            {result.input.title}
+          </h3>
+          <p className="text-sm text-gray-300">{result.input.artist || 'No artist supplied'}</p>
+        </div>
+        <Button variant="outline" size="sm" onClick={onSkip}>
+          <SkipForward className="mr-2 h-4 w-4" />
+          Skip this song
+        </Button>
+      </div>
+
+      {candidates.length ? (
+        <div className="mt-4 grid gap-3 xl:grid-cols-2">
+          {candidates.map((candidate) => (
+            <div key={candidate.id} className="rounded-lg border border-white/10 bg-white/5 p-3">
+              <div className="flex items-start justify-between gap-3">
+                <div className="min-w-0">
+                  <p className="truncate font-medium text-white">{candidate.title}</p>
+                  <p className="truncate text-sm text-gray-300">{candidate.artist}</p>
+                  <p className="truncate text-xs text-gray-500">{candidate.album}</p>
+                  <p className="mt-1 text-xs text-gray-500">Match score: {candidate.score}</p>
+                </div>
+                {candidate.spotifyUrl && (
+                  <a
+                    href={candidate.spotifyUrl}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="shrink-0 text-gray-400 hover:text-white"
+                    aria-label={`Open ${candidate.title} in Spotify`}
+                  >
+                    <ExternalLink className="h-4 w-4" />
+                  </a>
+                )}
+              </div>
+              <Button className="mt-3 w-full bg-neon-purple hover:bg-neon-purple/80" onClick={() => onSelect(candidate)}>
+                Use this track
+              </Button>
+            </div>
+          ))}
+        </div>
+      ) : (
+        <p className="mt-4 rounded-md border border-white/10 bg-white/5 p-3 text-sm text-gray-400">
+          Spotify returned no useful nearby tracks for this entry. Skip it for now and correct the title or artist in
+          the JSON before another import.
+        </p>
+      )}
+    </article>
   )
 }
 
