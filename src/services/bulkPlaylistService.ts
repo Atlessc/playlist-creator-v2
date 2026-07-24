@@ -68,9 +68,13 @@ interface SpotifyErrorBody {
 const SEARCH_ENDPOINT = 'https://api.spotify.com/v1/search'
 const API_BASE = 'https://api.spotify.com/v1'
 const DEFAULT_SEARCH_DELAY_MS = 400
+const DEFAULT_SEARCH_CONCURRENCY = 4
+const MAX_SEARCH_CONCURRENCY = 6
 const MAX_RETRIES = 8
 const MAX_REVIEW_CANDIDATES = 5
 const VERSION_WORDS = /\b(live|remix|mix|karaoke|tribute|cover|sped up|slowed|acoustic|instrumental|radio edit|remaster(?:ed)?)\b/i
+
+let sharedRateLimitUntil = 0
 
 function sleep(ms: number, signal?: AbortSignal): Promise<void> {
   return new Promise((resolve, reject) => {
@@ -89,6 +93,11 @@ function sleep(ms: number, signal?: AbortSignal): Promise<void> {
       { once: true },
     )
   })
+}
+
+async function waitForSharedRateLimit(signal?: AbortSignal): Promise<void> {
+  const waitMs = sharedRateLimitUntil - Date.now()
+  if (waitMs > 0) await sleep(waitMs, signal)
 }
 
 function getAccessToken(): string {
@@ -117,6 +126,8 @@ async function spotifyRequest<T>(
   const url = pathOrUrl.startsWith('http') ? pathOrUrl : `${API_BASE}${pathOrUrl}`
 
   for (let attempt = 0; attempt <= MAX_RETRIES; attempt += 1) {
+    await waitForSharedRateLimit(signal)
+
     const headers = new Headers(init.headers)
     headers.set('Authorization', `Bearer ${getAccessToken()}`)
     if (init.body && !headers.has('Content-Type')) headers.set('Content-Type', 'application/json')
@@ -128,7 +139,15 @@ async function spotifyRequest<T>(
       return (await response.json()) as T
     }
 
-    if (response.status === 429 || response.status >= 500) {
+    if (response.status === 429) {
+      if (attempt === MAX_RETRIES) break
+      const retryMs = getRetryAfterMs(response, attempt)
+      sharedRateLimitUntil = Math.max(sharedRateLimitUntil, Date.now() + retryMs)
+      await waitForSharedRateLimit(signal)
+      continue
+    }
+
+    if (response.status >= 500) {
       if (attempt === MAX_RETRIES) break
       await sleep(getRetryAfterMs(response, attempt), signal)
       continue
@@ -333,29 +352,42 @@ export async function searchSongList(
   options: {
     startIndex?: number
     delayMs?: number
+    concurrency?: number
     signal?: AbortSignal
     onProgress?: (progress: SearchProgress) => void
   } = {},
 ): Promise<SongSearchResult[]> {
   const results: SongSearchResult[] = []
-  const startIndex = options.startIndex ?? 0
-  const delayMs = Math.max(200, options.delayMs ?? DEFAULT_SEARCH_DELAY_MS)
+  const startIndex = Math.max(0, options.startIndex ?? 0)
+  const concurrency = Math.min(
+    MAX_SEARCH_CONCURRENCY,
+    Math.max(1, Math.floor(options.concurrency ?? DEFAULT_SEARCH_CONCURRENCY)),
+  )
+  const configuredDelayMs = Math.max(0, options.delayMs ?? DEFAULT_SEARCH_DELAY_MS)
+  const interBatchDelayMs = Math.max(50, Math.floor(configuredDelayMs / concurrency))
 
-  for (let index = startIndex; index < songs.length; index += 1) {
+  for (let batchStart = startIndex; batchStart < songs.length; batchStart += concurrency) {
     if (options.signal?.aborted) throw new DOMException('Operation aborted', 'AbortError')
 
-    const result = await searchSpotifyTrack(songs[index], options.signal)
-    results.push(result)
-    options.onProgress?.({
-      completed: index + 1,
-      total: songs.length,
-      current: songs[index],
-      result,
+    const batchSongs = songs.slice(batchStart, batchStart + concurrency)
+    const batchResults = await Promise.all(
+      batchSongs.map((song) => searchSpotifyTrack(song, options.signal)),
+    )
+
+    batchResults.forEach((result, offset) => {
+      const absoluteIndex = batchStart + offset
+      results.push(result)
+      options.onProgress?.({
+        completed: absoluteIndex + 1,
+        total: songs.length,
+        current: songs[absoluteIndex],
+        result,
+      })
     })
 
-    if (index < songs.length - 1) {
-      const jitter = Math.floor(Math.random() * 120)
-      await sleep(delayMs + jitter, options.signal)
+    if (batchStart + concurrency < songs.length) {
+      const jitter = Math.floor(Math.random() * 75)
+      await sleep(interBatchDelayMs + jitter, options.signal)
     }
   }
 
