@@ -43,19 +43,22 @@ Including the artist is strongly recommended because it substantially improves m
 7. Choose **Use this track** for the correct result or **Skip this song** when none are correct.
 8. Upload after all unresolved songs have been reviewed.
 
-## Rate-limit behavior
+## Search speed and rate limits
 
-- Searches run sequentially instead of launching 1,000 requests at once.
-- The default delay is 400 ms plus a small random jitter.
+- Searches run in controlled waves of four songs instead of one song at a time.
+- The existing delay setting controls the spacing between search waves, not every individual song.
+- Four workers share one rate-limit gate, so a Spotify `429` pauses all workers together instead of causing a retry storm.
 - HTTP 429 responses respect Spotify's `Retry-After` header when present.
 - Temporary Spotify 5xx errors use exponential backoff with jitter.
 - Search and upload progress is checkpointed to `localStorage`.
 - Searches and uploads can be paused safely and resumed after a refresh.
 - Playlist uploads are split into batches of 100 Spotify URIs.
 
+The default four-worker setting is intentionally conservative. It should be substantially faster than the original sequential loop while remaining much less likely to trigger Spotify rate limits than unbounded concurrency.
+
 ## Matching behavior
 
-The importer first searches using exact track and artist qualifiers. When the top result is not confident enough, it now also searches by title and then with a looser title-and-artist query. Results from all searches are merged, deduplicated, scored, and ranked.
+The importer first searches using exact track and artist qualifiers. When the top result is not confident enough, it also searches by title and then with a looser title-and-artist query. Results from all searches are merged, deduplicated, scored, and ranked.
 
 Low-confidence tracks are not discarded. Up to five nearby candidates are saved in the checkpoint and displayed for manual selection. Upload stays disabled until every unresolved entry is either manually matched or explicitly skipped.
 
